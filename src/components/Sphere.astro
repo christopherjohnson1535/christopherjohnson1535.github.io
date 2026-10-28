@@ -1,94 +1,283 @@
 ---
-// Dots on a sphere, turning slowly. Plain canvas, no libraries.
+// Dots on a sphere. They turn slowly, lean towards the mouse, can be dragged
+// and thrown, scatter away from the cursor, and every few seconds flow into
+// a blob or a ring and back. Plain canvas, no libraries.
 const points = 150;
 ---
 
-<div class="sphere" aria-hidden="true">
-  <canvas width="300" height="300" data-points={points}></canvas>
-  <p class="mono">pts {points} / rot <span data-rot>0.00</span> rad</p>
+<div class="sphere">
+  <canvas width="300" height="300" data-points={points} aria-hidden="true"></canvas>
+  <p class="mono" aria-hidden="true">shape <span data-shape>sphere</span> / rot <span data-rot>0.42</span> rad</p>
 </div>
 
 <script>
-  const canvas = document.querySelector<HTMLCanvasElement>('.sphere canvas');
-  const readout = document.querySelector<HTMLElement>('.sphere [data-rot]');
+  import { onPage, reducedMotion, hasMouse, introPlaying, clamp, lerp, easeOutCubic, easeInOut } from '../scripts/motion';
 
-  if (canvas) {
+  type Vec = [number, number, number];
+
+  const SHAPES = ['sphere', 'blob', 'ring'] as const;
+  const HOLD_MS = 7000; // time spent on each shape
+  const MORPH_MS = 2200; // time spent flowing between shapes
+
+  const TAU = Math.PI * 2;
+  const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+
+  function sphereAt(i: number, n: number): Vec {
+    // fibonacci sphere: evenly spread, no clumping at the poles
+    const y = 1 - (2 * (i + 0.5)) / n;
+    const r = Math.sqrt(1 - y * y);
+    return [Math.cos(GOLDEN * i) * r, y, Math.sin(GOLDEN * i) * r];
+  }
+
+  function blobAt(p: Vec, time: number): Vec {
+    const [x, y, z] = p;
+    const wobble = 1 + 0.22 * Math.sin(3 * x + time * 0.0011) * Math.sin(2 * y + time * 0.0014) * Math.cos(2.5 * z);
+    return [x * wobble, y * wobble * 0.92, z * wobble];
+  }
+
+  function ringAt(i: number, n: number): Vec {
+    // a torus, as rings of dots around the tube
+    const around = 15;
+    const rings = Math.ceil(n / around);
+    const a = (TAU * Math.floor(i / around)) / rings;
+    const b = (TAU * (i % around)) / around + a * 0.5;
+    const R = 0.68;
+    const r = 0.3;
+    return [(R + r * Math.cos(b)) * Math.cos(a), r * Math.sin(b), (R + r * Math.cos(b)) * Math.sin(a)];
+  }
+
+  onPage(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>('.sphere canvas');
+    if (!canvas) return;
     const ctx = canvas.getContext('2d')!;
-    const n = Number(canvas.dataset.points) || 150;
-    const tilt = 0.35;
-    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const rotOut = document.querySelector<HTMLElement>('.sphere [data-rot]');
+    const shapeOut = document.querySelector<HTMLElement>('.sphere [data-shape]');
 
-    // fibonacci sphere: evenly spread points without clumping at the poles
-    const pts: [number, number, number][] = [];
-    const golden = Math.PI * (3 - Math.sqrt(5));
-    for (let i = 0; i < n; i++) {
-      const y = 1 - (2 * (i + 0.5)) / n;
-      const r = Math.sqrt(1 - y * y);
-      pts.push([Math.cos(golden * i) * r, y, Math.sin(golden * i) * r]);
-    }
+    const n = Number(canvas.dataset.points) || 150;
+    const base = Array.from({ length: n }, (_, i) => sphereAt(i, n));
+    const ring = Array.from({ length: n }, (_, i) => ringAt(i, n));
+
+    // per-dot screen offsets used for the cursor scatter
+    const ox = new Float32Array(n);
+    const oy = new Float32Array(n);
+
+    // where each dot starts during the intro, and when it sets off
+    const assemble = introPlaying() && !reducedMotion();
+    const scatter = base.map(() => [Math.random() * 2 - 1, Math.random() * 2 - 1, Math.random() * 0.8]);
+    const departs = base.map(() => 300 + Math.random() * 700);
 
     let size = 0;
     function resize() {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       size = canvas!.clientWidth;
       canvas!.width = size * dpr;
       canvas!.height = size * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
-    let rot = 0.42;
+    // motion state
+    let yaw = 0.42;
+    let spin = 0; // extra yaw speed from throwing it
+    let boost = 0; // extra yaw speed from moving the mouse quickly
+    let tilt = 0.35;
+    let lean = 0; // yaw offset towards the mouse
+    let targetTilt = 0.35;
+    let targetLean = 0;
+    let mouseX = -9999; // cursor in canvas coordinates
+    let mouseY = -9999;
+    let lastPointerX: number | null = null;
+
+    let dragging = false;
+    let dragX = 0;
+    let dragVelocity = 0;
+
+    const born = performance.now();
     let frame = 0;
 
-    function draw() {
-      const R = size * 0.44;
+    function shapePoint(i: number, which: (typeof SHAPES)[number], time: number): Vec {
+      if (which === 'blob') return blobAt(base[i], time);
+      if (which === 'ring') return ring[i];
+      return base[i];
+    }
+
+    function draw(now: number) {
+      const age = now - born;
+      const R = size * 0.42;
       const c = size / 2;
-      const cosR = Math.cos(rot), sinR = Math.sin(rot);
+
+      // which shape are we on, and how far into the morph to the next one
+      const cycle = HOLD_MS + MORPH_MS;
+      const step = Math.floor(age / cycle);
+      const into = age % cycle;
+      const from = SHAPES[step % SHAPES.length];
+      const to = SHAPES[(step + 1) % SHAPES.length];
+      const morph = into > HOLD_MS ? easeInOut((into - HOLD_MS) / MORPH_MS) : 0;
+
+      const cosY = Math.cos(yaw + lean), sinY = Math.sin(yaw + lean);
       const cosT = Math.cos(tilt), sinT = Math.sin(tilt);
 
       ctx.clearRect(0, 0, size, size);
-      for (const [x, y, z] of pts) {
-        // spin around y, then tip towards the viewer
-        const x1 = x * cosR + z * sinR;
-        const z1 = -x * sinR + z * cosR;
+      ctx.fillStyle = '#d6d5d1';
+
+      for (let i = 0; i < n; i++) {
+        const a = shapePoint(i, from, age);
+        const b = morph > 0 ? shapePoint(i, to, age) : a;
+        const x = lerp(a[0], b[0], morph);
+        const y = lerp(a[1], b[1], morph);
+        const z = lerp(a[2], b[2], morph);
+
+        // turn around the vertical axis, then tip towards the viewer
+        const x1 = x * cosY + z * sinY;
+        const z1 = -x * sinY + z * cosY;
         const y2 = y * cosT - z1 * sinT;
         const z2 = y * sinT + z1 * cosT;
 
-        const depth = (z2 + 1) / 2; // 0 = back, 1 = front
-        ctx.globalAlpha = 0.15 + depth * 0.75;
-        ctx.fillStyle = '#d6d5d1';
+        let sx = c + x1 * R;
+        let sy = c + y2 * R;
+        let depth = clamp((z2 + 1) / 2, 0, 1); // 0 = back, 1 = front
+        let alpha = 0.15 + depth * 0.75;
+
+        // push dots away from the cursor, and let them drift back
+        const dx = sx + ox[i] - mouseX;
+        const dy = sy + oy[i] - mouseY;
+        const dist = Math.hypot(dx, dy);
+        const reach = 54;
+        let tx = 0;
+        let ty = 0;
+        if (dist < reach && dist > 0.01) {
+          const push = Math.pow(1 - dist / reach, 2) * 22;
+          tx = (dx / dist) * push;
+          ty = (dy / dist) * push;
+        }
+        ox[i] += (tx - ox[i]) * 0.18;
+        oy[i] += (ty - oy[i]) * 0.18;
+        sx += ox[i];
+        sy += oy[i];
+
+        // intro: fly in from scattered positions
+        if (assemble) {
+          const k = easeOutCubic(clamp((age - departs[i]) / 1400, 0, 1));
+          if (k < 1) {
+            const [rx, ry, rz] = scatter[i];
+            sx = lerp(c + rx * size * 0.9, sx, k);
+            sy = lerp(c + ry * size * 0.9, sy, k);
+            depth = lerp(rz, depth, k);
+            alpha = alpha * k;
+          }
+        }
+
+        ctx.globalAlpha = alpha;
         ctx.beginPath();
-        ctx.arc(c + x1 * R, c + y2 * R, 0.6 + depth * 1.1, 0, Math.PI * 2);
+        ctx.arc(sx, sy, 0.6 + depth * 1.1, 0, TAU);
         ctx.fill();
       }
       ctx.globalAlpha = 1;
 
-      if (readout && frame++ % 12 === 0) {
-        readout.textContent = (rot % (Math.PI * 2)).toFixed(2);
+      if (frame++ % 10 === 0) {
+        if (rotOut) rotOut.textContent = (((yaw % TAU) + TAU) % TAU).toFixed(2);
+        if (shapeOut) shapeOut.textContent = morph > 0.5 ? to : from;
       }
     }
 
-    let running = false;
-    function tick() {
-      if (!running) return;
-      rot += 0.0035;
-      draw();
-      requestAnimationFrame(tick);
+    function update() {
+      if (!dragging) {
+        yaw += 0.0035 + spin + boost;
+        spin *= 0.95;
+        boost *= 0.9;
+      }
+      tilt += (targetTilt - tilt) * 0.05;
+      lean += (targetLean - lean) * 0.05;
     }
+
+    let raf = 0;
+    let visible = false;
+    const loop = (now: number) => {
+      update();
+      draw(now);
+      raf = visible ? requestAnimationFrame(loop) : 0;
+    };
 
     resize();
-    draw();
-    window.addEventListener('resize', () => {
-      resize();
-      draw();
-    });
 
-    if (!still) {
-      // only spin while it's on screen
-      new IntersectionObserver(([entry]) => {
-        const was = running;
-        running = entry.isIntersecting;
-        if (running && !was) requestAnimationFrame(tick);
-      }).observe(canvas);
+    if (reducedMotion()) {
+      draw(born);
+      const onResize = () => {
+        resize();
+        draw(born);
+      };
+      window.addEventListener('resize', onResize);
+      return () => window.removeEventListener('resize', onResize);
     }
-  }
+
+    // only run while it's on screen
+    const io = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (visible && !raf) raf = requestAnimationFrame(loop);
+    });
+    io.observe(canvas);
+
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+
+    // lean towards the mouse anywhere on the page, spin faster when it moves fast
+    function onMove(e: PointerEvent) {
+      const rect = canvas!.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+      const nx = clamp((e.clientX - (rect.left + rect.width / 2)) / window.innerWidth, -1, 1);
+      const ny = clamp((e.clientY - (rect.top + rect.height / 2)) / window.innerHeight, -1, 1);
+      targetLean = nx * 0.6;
+      targetTilt = 0.35 + ny * 0.5;
+      if (lastPointerX !== null && !dragging) {
+        boost = clamp(boost + Math.abs(e.clientX - lastPointerX) * 0.00004, 0, 0.03);
+      }
+      lastPointerX = e.clientX;
+    }
+    function onLeave() {
+      mouseX = mouseY = -9999;
+      targetLean = 0;
+      targetTilt = 0.35;
+      lastPointerX = null;
+    }
+
+    // drag to spin, let go to throw
+    function onDown(e: PointerEvent) {
+      dragging = true;
+      dragX = e.clientX;
+      dragVelocity = 0;
+      spin = 0;
+      canvas!.setPointerCapture(e.pointerId);
+      canvas!.classList.add('grabbing');
+    }
+    function onDrag(e: PointerEvent) {
+      if (!dragging) return;
+      const dx = e.clientX - dragX;
+      dragX = e.clientX;
+      yaw += dx * 0.01;
+      dragVelocity = dx * 0.01;
+    }
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      spin = clamp(dragVelocity, -0.25, 0.25);
+      canvas!.classList.remove('grabbing');
+    }
+
+    if (hasMouse()) {
+      window.addEventListener('pointermove', onMove, { passive: true });
+      document.documentElement.addEventListener('pointerleave', onLeave);
+    }
+    canvas.addEventListener('pointerdown', onDown);
+    canvas.addEventListener('pointermove', onDrag);
+    canvas.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointercancel', onUp);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      io.disconnect();
+      ro.disconnect();
+      window.removeEventListener('pointermove', onMove);
+      document.documentElement.removeEventListener('pointerleave', onLeave);
+    };
+  });
 </script>

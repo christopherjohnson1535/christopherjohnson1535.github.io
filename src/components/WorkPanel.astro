@@ -12,37 +12,47 @@ const pad = (i: number) => String(i + 1).padStart(2, '0');
 ---
 
 <div class="work-panel" data-work>
-  <div class="work-blank">
+  <div class="work-blank stack">
     {projects.map((p, i) => <span class="mono" data-slide hidden={i > 0}>fig. {pad(i)} / {p.id}</span>)}
   </div>
 
-  <div class="work-shot">
+  <div class="work-shot stack">
     {
       projects.map((p, i) => (
         <a href={`/projects/${p.id}/`} data-slide hidden={i > 0}>
-          <Image
-            src={p.data.images[0].src}
-            alt={p.data.images[0].alt}
-            widths={[480, 820, 1280]}
-            sizes="(max-width: 640px) 100vw, 640px"
-            loading={i === 0 ? 'eager' : 'lazy'}
-          />
+          <span class="shot-frame" transition:name={`shot-${p.id}`}>
+            <Image
+              src={p.data.images[0].src}
+              alt={p.data.images[0].alt}
+              widths={[480, 820, 1280]}
+              sizes="(max-width: 640px) 100vw, 640px"
+              loading={i === 0 ? 'eager' : 'lazy'}
+            />
+          </span>
         </a>
       ))
     }
   </div>
 
   <div class="work-tabs" role="tablist" aria-label="Projects">
+    <span class="tab-marker" aria-hidden="true"></span>
     {
       projects.map((p, i) => (
-        <button type="button" role="tab" aria-selected={i === 0 ? 'true' : 'false'} aria-label={p.data.title} data-tab={i}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={i === 0 ? 'true' : 'false'}
+          aria-label={p.data.title}
+          tabindex={i === 0 ? 0 : -1}
+          data-tab={i}
+        >
           {tabCode(p)}
         </button>
       ))
     }
   </div>
 
-  <div class="work-info">
+  <div class="work-info stack">
     {
       projects.map((p, i) => (
         <div data-slide hidden={i > 0}>
@@ -55,7 +65,7 @@ const pad = (i: number) => String(i + 1).padStart(2, '0');
   </div>
 
   <div class="work-bar">
-    <button type="button" data-step="-1" aria-label="Previous project">&larr;</button>
+    <button type="button" data-step="-1" aria-label="Previous project"><span class="arrow w">&larr;</span></button>
     {
       projects.map((p, i) => (
         <a
@@ -65,7 +75,7 @@ const pad = (i: number) => String(i + 1).padStart(2, '0');
           data-slide
           hidden={i > 0}
         >
-          &nearr;
+          <span class="arrow ne">&nearr;</span>
         </a>
       ))
     }
@@ -76,33 +86,120 @@ const pad = (i: number) => String(i + 1).padStart(2, '0');
         </a>
       ))
     }
-    <button type="button" data-step="1" aria-label="Next project">&rarr;</button>
+    <button type="button" data-step="1" aria-label="Next project"><span class="arrow e">&rarr;</span></button>
   </div>
 </div>
 
 <script>
-  for (const panel of document.querySelectorAll<HTMLElement>('[data-work]')) {
+  import { onPage, reducedMotion } from '../scripts/motion';
+
+  const WIPE_MS = 650;
+
+  onPage(() => {
+    const panel = document.querySelector<HTMLElement>('[data-work]');
+    if (!panel) return;
+
     const tabs = [...panel.querySelectorAll<HTMLButtonElement>('[data-tab]')];
     const steps = [...panel.querySelectorAll<HTMLButtonElement>('[data-step]')];
-    // each column holds one [data-slide] per project, in the same order
-    const columns = [...panel.querySelectorAll('.work-blank, .work-shot, .work-info')].map((col) => [
-      ...col.querySelectorAll<HTMLElement>(':scope > [data-slide]'),
-    ]);
-    columns.push([...panel.querySelectorAll<HTMLElement>('.work-bar .open')]);
-    columns.push([...panel.querySelectorAll<HTMLElement>('.work-bar .title')]);
+    const marker = panel.querySelector<HTMLElement>('.tab-marker')!;
+
+    // one [data-slide] per project in each of these, in the same order
+    const slides = (sel: string) => [...panel.querySelectorAll<HTMLElement>(sel)];
+    const shots = slides('.work-shot > [data-slide]');
+    const fades = [
+      slides('.work-blank > [data-slide]'),
+      slides('.work-info > [data-slide]'),
+      slides('.work-bar .open'),
+      slides('.work-bar .title'),
+    ];
 
     let current = 0;
+    let timers: number[] = [];
 
-    function show(i: number) {
-      current = i;
-      for (const col of columns) col.forEach((el, j) => (el.hidden = j !== i));
-      tabs.forEach((t, j) => t.setAttribute('aria-selected', String(j === i)));
-      steps[0].disabled = i === 0;
-      steps[1].disabled = i === tabs.length - 1;
+    function placeMarker() {
+      const tab = tabs[current];
+      marker.style.width = `${tab.offsetWidth}px`;
+      marker.style.height = `${tab.offsetHeight}px`;
+      marker.style.transform = `translate(${tab.offsetLeft}px, ${tab.offsetTop}px)`;
     }
 
-    tabs.forEach((t, i) => t.addEventListener('click', () => show(i)));
+    function show(next: number, focus = false) {
+      if (next === current || next < 0 || next >= tabs.length) return;
+      const forward = next > current;
+      const prev = current;
+      current = next;
+
+      timers.forEach(clearTimeout);
+      timers = [];
+
+      if (reducedMotion()) {
+        shots.forEach((el, j) => (el.hidden = j !== next));
+      } else {
+        // the new screenshot wipes in over the old one, then the old one goes
+        shots.forEach((el, j) => {
+          el.classList.remove('wipe-in', 'from-left');
+          el.hidden = j !== next && j !== prev;
+        });
+        const incoming = shots[next];
+        incoming.classList.add('wipe-in');
+        if (!forward) incoming.classList.add('from-left');
+        timers.push(
+          window.setTimeout(() => {
+            shots.forEach((el, j) => (el.hidden = j !== next));
+            incoming.classList.remove('wipe-in', 'from-left');
+          }, WIPE_MS),
+        );
+      }
+
+      for (const col of fades) {
+        col.forEach((el, j) => {
+          el.hidden = j !== next;
+          el.classList.toggle('fade-in', j === next && !reducedMotion());
+        });
+      }
+
+      tabs.forEach((t, j) => {
+        t.setAttribute('aria-selected', String(j === next));
+        t.tabIndex = j === next ? 0 : -1;
+      });
+      if (focus) tabs[next].focus();
+      steps[0].disabled = next === 0;
+      steps[1].disabled = next === tabs.length - 1;
+      placeMarker();
+    }
+
+    const onTabKey = (e: KeyboardEvent) => {
+      const keys: Record<string, number> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+      if (e.key in keys) {
+        e.preventDefault();
+        show(current + keys[e.key], true);
+      } else if (e.key === 'Home') {
+        e.preventDefault();
+        show(0, true);
+      } else if (e.key === 'End') {
+        e.preventDefault();
+        show(tabs.length - 1, true);
+      }
+    };
+
+    tabs.forEach((t, i) => {
+      t.addEventListener('click', () => show(i));
+      t.addEventListener('keydown', onTabKey);
+    });
     steps.forEach((s) => s.addEventListener('click', () => show(current + Number(s.dataset.step))));
-    show(0);
-  }
+
+    steps[0].disabled = true;
+    steps[1].disabled = tabs.length < 2;
+    placeMarker();
+    // the marker shouldn't slide in from nowhere on load
+    requestAnimationFrame(() => marker.classList.add('ready'));
+
+    const ro = new ResizeObserver(placeMarker);
+    ro.observe(panel);
+
+    return () => {
+      timers.forEach(clearTimeout);
+      ro.disconnect();
+    };
+  });
 </script>

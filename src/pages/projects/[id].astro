@@ -18,7 +18,7 @@ const fig = (i: number) => (images.length > 1 ? `01${'abcdefgh'[i]}` : '01');
 ---
 
 <Base title={title} description={intro}>
-  <p class="back mono"><a href="/projects/">&larr; all projects</a></p>
+  <p class="back mono"><a href="/projects/"><span class="arrow w">&larr;</span> all projects</a></p>
 
   <div class="project-head">
     <div>
@@ -45,7 +45,11 @@ const fig = (i: number) => (images.length > 1 ? `01${'abcdefgh'[i]}` : '01');
       (repo || link) && (
         <div>
           <dt>{repo ? 'source' : 'link'}</dt>
-          <dd>{repo ? <a href={repo}>{repoName} on GitHub &nearr;</a> : <a href={link}>{link} &nearr;</a>}</dd>
+          <dd>
+            <a href={repo ?? link}>
+              {repo ? `${repoName} on GitHub` : link} <span class="arrow ne">&nearr;</span>
+            </a>
+          </dd>
         </div>
       )
     }
@@ -56,13 +60,15 @@ const fig = (i: number) => (images.length > 1 ? `01${'abcdefgh'[i]}` : '01');
       <div class="shots">
         {images.map((img, i) => (
           <figure>
-            <Image
-              src={img.src}
-              alt={img.alt}
-              widths={[480, 820, 1280]}
-              sizes="(max-width: 900px) 100vw, 560px"
-              loading={i === 0 ? 'eager' : 'lazy'}
-            />
+            <span class="shot-frame" transition:name={i === 0 ? `shot-${project.id}` : undefined}>
+              <Image
+                src={img.src}
+                alt={img.alt}
+                widths={[480, 820, 1280]}
+                sizes="(max-width: 900px) 100vw, 560px"
+                loading={i === 0 ? 'eager' : 'lazy'}
+              />
+            </span>
             <figcaption class="mono">
               fig. {fig(i)}
               {img.caption && ` / ${img.caption.charAt(0).toLowerCase()}${img.caption.slice(1)}`}

@@ -1,4 +1,5 @@
 ---
+import { ClientRouter } from 'astro:transitions';
 import '../styles/global.css';
 import { getProjects } from '../lib/projects';
 
@@ -40,10 +41,37 @@ const current = (await getProjects()).find((p) => p.data.status === 'In progress
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Jost:wght@200;300;400;500&display=swap"
     />
+
+    <!--
+      Runs before first paint. `js` turns on the animated states in the CSS
+      (without it everything just shows). `intro` plays the build-in sequence,
+      once per visit, on the home page.
+    -->
+    <script is:inline>
+      (function () {
+        var html = document.documentElement;
+        html.classList.add('js');
+        document.addEventListener('astro:after-swap', function () {
+          html.classList.add('js');
+        });
+        try {
+          var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          if (location.pathname === '/' && !still && !sessionStorage.getItem('intro-seen')) {
+            html.classList.add('intro');
+            sessionStorage.setItem('intro-seen', '1');
+          }
+        } catch (e) {}
+      })();
+    </script>
+
+    <ClientRouter />
   </head>
   <body>
+    <div class="lattice" aria-hidden="true" transition:persist="lattice"></div>
+    <div class="lattice-glow" aria-hidden="true" transition:persist="lattice-glow"></div>
+
     <div class="wrap">
-      <header class="site-header">
+      <header class="site-header" transition:name="site-header">
         <a class="brand" href="/">{name}</a>
         <nav class="site-nav" aria-label="Main">
           <a href="/projects/" aria-current={onProjects ? 'page' : undefined}><span class="n">01</span>Projects</a>
@@ -65,8 +93,12 @@ const current = (await getProjects()).find((p) => p.data.status === 'In progress
 
       <footer class="site-footer">
         <span>{name}, {new Date().getFullYear()}</span>
-        <a href={github}>GitHub</a>
+        <a href={github}>GitHub <span class="arrow ne">&nearr;</span></a>
       </footer>
     </div>
+
+    <script>
+      import '../scripts/page';
+    </script>
   </body>
 </html>

@@ -14,7 +14,10 @@ const current = projects.find((p) => p.data.status === 'In progress');
   <section class="hero" aria-label="Introduction">
     <div class="hero-side">
       <p class="mono"><span class="n">01.</span> software, mostly for home</p>
-      <h1 class="display">Small software<br /><span>for home</span></h1>
+      <h1 class="display">
+        <span class="line"><span>Small software</span></span>
+        <span class="line dim"><span>for home</span></span>
+      </h1>
       <p class="mono">
         <span class="n">03.</span> <a href="https://github.com/christopherjohnson1535">github / christopherjohnson1535</a>
       </p>
@@ -24,7 +27,10 @@ const current = projects.find((p) => p.data.status === 'In progress');
 
     <div class="hero-side right">
       <p class="mono"><span class="n">02.</span> projects and notes</p>
-      <p class="display">Written<br /><span>to last</span></p>
+      <p class="display">
+        <span class="line"><span>Written</span></span>
+        <span class="line dim"><span>to last</span></span>
+      </p>
       {
         current && (
           <p class="mono">
@@ -46,7 +52,7 @@ const current = projects.find((p) => p.data.status === 'In progress');
             <p>Things I've built, and the one I'm building now.</p>
             <h2 class="display" id="work">Selected work</h2>
           </div>
-          <a class="cell-link" href="/projects/">All projects</a>
+          <a class="cell-link" href="/projects/">All projects <span class="arrow e">&rarr;</span></a>
         </div>
         <WorkPanel projects={withImages} />
       </section>

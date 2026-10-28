@@ -15,6 +15,8 @@
 
   --cell: 64px; /* height of header/footer/button cells */
   --u: 80px; /* background grid size */
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -24,10 +26,6 @@ html { -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   background-color: var(--bg);
-  background-image:
-    linear-gradient(to right, var(--grid) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
-  background-size: var(--u) var(--u);
   color: var(--text);
   font-family: var(--font);
   font-size: 17px;
@@ -71,10 +69,36 @@ img { max-width: 100%; height: auto; }
 }
 
 .wrap {
+  position: relative;
+  z-index: 1;
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 40px 64px;
 }
+
+/* the background grid, plus a brighter copy that shows around the mouse */
+
+.lattice,
+.lattice-glow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--line-color) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--line-color) 1px, transparent 1px);
+  background-size: var(--u) var(--u);
+}
+.lattice { --line-color: var(--grid); }
+.lattice-glow {
+  --line-color: rgb(255 255 255 / 0.16);
+  --mx: -500px;
+  --my: -500px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  -webkit-mask-image: radial-gradient(240px circle at var(--mx) var(--my), #000, transparent 75%);
+  mask-image: radial-gradient(240px circle at var(--mx) var(--my), #000, transparent 75%);
+}
+.lattice-glow.on { opacity: 1; }
 
 /* header */
 
@@ -117,7 +141,6 @@ img { max-width: 100%; height: auto; }
   font-size: 12px;
   color: var(--dim);
 }
-.site-nav a[aria-current] { background: var(--raised); }
 .site-nav a[aria-current] .n { color: var(--accent); }
 .now {
   border-left: 1px solid var(--line);
@@ -152,7 +175,12 @@ img { max-width: 100%; height: auto; }
   font-size: 44px;
   line-height: 1.5;
 }
-.hero .display span { color: var(--dim); }
+.line {
+  display: block;
+  overflow: hidden;
+}
+.line > span { display: inline-block; }
+.line.dim { color: var(--dim); }
 
 .sphere {
   display: flex;
@@ -164,7 +192,10 @@ img { max-width: 100%; height: auto; }
   display: block;
   width: 300px;
   height: 300px;
+  cursor: grab;
+  touch-action: pan-y; /* horizontal drags spin it, vertical ones still scroll */
 }
+.sphere canvas.grabbing { cursor: grabbing; }
 .sphere .mono {
   font-size: 11px;
   color: var(--dim);
@@ -209,39 +240,57 @@ img { max-width: 100%; height: auto; }
 .work-blank {
   flex: 1 1 200px;
   min-height: 400px;
-  display: flex;
-  align-items: flex-end;
+  align-items: end;
   padding: 16px;
   border-right: 1px solid var(--line);
 }
 .work-blank .mono { font-size: 11px; color: var(--dim); }
+/* columns whose slides sit on top of each other, so one can fade or wipe over another */
+.stack { display: grid; }
+.stack > [data-slide] { grid-area: 1 / 1; }
+
 .work-shot {
   flex: 3 1 420px;
-  display: flex;
   align-items: center;
   padding: 32px;
   border-right: 1px solid var(--line);
   background: rgb(255 255 255 / 0.02);
 }
-.work-shot > a {
+.work-shot > a { display: block; }
+.work-shot .shot-frame img { aspect-ratio: 16 / 10; }
+
+/* a screenshot in a bordered frame; the image is a little oversized so it can drift */
+.shot-frame {
   display: block;
-  width: 100%;
-}
-.work-shot img {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 10;
-  object-fit: cover;
-  object-position: top;
+  overflow: hidden;
   border: 1px solid var(--line);
 }
+.shot-frame img {
+  display: block;
+  width: 100%;
+  object-fit: cover;
+  object-position: top;
+  transform: translateY(var(--drift, 0px)) scale(1.06);
+  will-change: transform;
+}
+
 .work-tabs {
+  position: relative;
   flex: 0 0 var(--cell);
   display: flex;
   flex-direction: column;
   border-right: 1px solid var(--line);
 }
+.tab-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.tab-marker.ready { transition: transform 0.45s var(--ease), width 0.45s var(--ease), height 0.45s var(--ease); }
 .work-tabs button {
+  position: relative;
   height: var(--cell);
   padding: 0;
   border: 0;
@@ -251,12 +300,10 @@ img { max-width: 100%; height: auto; }
   font-family: var(--mono);
   font-size: 12px;
   cursor: pointer;
+  transition: color 0.2s ease;
 }
 .work-tabs button:hover { color: var(--text); }
-.work-tabs button[aria-selected='true'] {
-  background: var(--raised);
-  color: var(--accent);
-}
+.work-tabs button[aria-selected='true'] { color: var(--accent); }
 .work-info {
   flex: 2 1 280px;
   padding: 24px;
@@ -405,14 +452,7 @@ img { max-width: 100%; height: auto; }
   border-right: 1px solid var(--line);
 }
 .shots figure:last-child { border-right: 0; }
-.shots img {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 15;
-  object-fit: cover;
-  object-position: top;
-  border: 1px solid var(--line);
-}
+.shots .shot-frame img { aspect-ratio: 16 / 15; }
 .shots figcaption {
   margin-top: 14px;
   color: var(--dim);
@@ -556,6 +596,7 @@ img { max-width: 100%; height: auto; }
     border-top: 1px solid var(--line);
   }
   .work-tabs button { width: var(--cell); border-bottom: 0; border-right: 1px solid var(--line); }
+  .tab-marker { box-shadow: inset 0 2px 0 var(--accent); }
   .work-info { border-top: 1px solid var(--line); }
   .section-head .display,
   .index .display { font-size: 32px; }
@@ -568,6 +609,148 @@ img { max-width: 100%; height: auto; }
   .writeup > h2 + * { border-top: 0; padding-top: 0; }
 }
 
+/* ---------- motion ---------- */
+
+/* cells fill from the bottom on hover */
+.site-nav a,
+.site-header .now,
+.cell-link,
+.work-bar > a,
+.work-bar > button,
+.index-list li,
+.site-footer a {
+  background-image: linear-gradient(var(--raised), var(--raised));
+  background-repeat: no-repeat;
+  background-position: bottom;
+  background-size: 100% 0;
+  transition: background-size 0.35s var(--ease), color 0.2s ease;
+}
+.site-nav a:hover,
+.site-header .now:hover,
+.cell-link:hover,
+.work-bar > a:hover,
+.work-bar > button:not(:disabled):hover,
+.index-list li:hover,
+.site-footer a:hover,
+.site-nav a[aria-current] {
+  background-size: 100% 100%;
+}
+.site-nav a:hover,
+.cell-link:hover,
+.work-bar > a:hover,
+.work-bar > button:not(:disabled):hover { color: var(--text); }
+
+/* arrows nudge the way they point */
+.arrow {
+  display: inline-block;
+  transition: transform 0.3s var(--ease);
+}
+a:hover .arrow.e,
+button:not(:disabled):hover .arrow.e { transform: translateX(4px); }
+a:hover .arrow.w,
+button:not(:disabled):hover .arrow.w { transform: translateX(-4px); }
+a:hover .arrow.ne { transform: translate(3px, -3px); }
+
+/* section outlines trace themselves the first time they scroll into view */
+.js .draw {
+  position: relative;
+  border-color: transparent;
+}
+.js .draw::before,
+.js .draw::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  pointer-events: none;
+  transition: transform 0.9s var(--ease);
+}
+.js .draw::before {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.js .draw::after {
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition-delay: 0.15s;
+}
+.js .draw > * {
+  opacity: 0;
+  transition: opacity 0.6s ease 0.35s;
+}
+.js .draw.drawn::before,
+.js .draw.drawn::after { transform: none; }
+.js .draw.drawn > * { opacity: 1; }
+
+/* work panel: the new screenshot wipes across, everything else fades */
+@keyframes wipe-from-right {
+  from { clip-path: inset(0 0 0 100%); }
+  to { clip-path: inset(0); }
+}
+@keyframes wipe-from-left {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+.wipe-in {
+  position: relative;
+  z-index: 1;
+  animation: wipe-from-right 0.65s var(--ease) both;
+}
+.wipe-in.from-left { animation-name: wipe-from-left; }
+.fade-in { animation: fade-in 0.45s var(--ease) both; }
+.work-info .fade-in { animation-delay: 0.12s; }
+
+/* page transitions */
+::view-transition-group(*) {
+  animation-duration: 0.55s;
+  animation-timing-function: var(--ease);
+}
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: 0.3s; }
+
+/* intro: plays once per visit on the home page (see Base.astro) */
+@keyframes sweep-down {
+  from { clip-path: inset(0 0 100% 0); }
+  to { clip-path: inset(0); }
+}
+@keyframes sweep-right {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0); }
+}
+@keyframes rise {
+  from { transform: translateY(105%); }
+  to { transform: none; }
+}
+@keyframes appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.intro .lattice { animation: sweep-down 1.2s var(--ease) both; }
+.intro .site-header { animation: sweep-right 0.9s var(--ease) 0.25s both; }
+.intro .hero .line > span { animation: rise 0.9s var(--ease) both; }
+.intro .hero-side:first-child .line:nth-child(1) > span { animation-delay: 0.5s; }
+.intro .hero-side:first-child .line:nth-child(2) > span { animation-delay: 0.6s; }
+.intro .hero-side.right .line:nth-child(1) > span { animation-delay: 0.7s; }
+.intro .hero-side.right .line:nth-child(2) > span { animation-delay: 0.8s; }
+.intro .hero-side .mono,
+.intro .sphere .mono { animation: appear 0.4s ease 1s both; }
+.intro .work,
+.intro .index { animation: appear 0.8s ease 1.4s both; }
+
 @media (prefers-reduced-motion: reduce) {
-  * { scroll-behavior: auto !important; }
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .shot-frame img { transform: none; }
 }
