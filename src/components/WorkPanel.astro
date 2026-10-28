@@ -1,0 +1,108 @@
+---
+import { Image } from 'astro:assets';
+import { tabCode, metaLine, type Project } from '../lib/projects';
+
+interface Props {
+  projects: Project[]; // only ones with at least one image
+}
+
+const { projects } = Astro.props;
+const total = String(projects.length).padStart(2, '0');
+const pad = (i: number) => String(i + 1).padStart(2, '0');
+---
+
+<div class="work-panel" data-work>
+  <div class="work-blank">
+    {projects.map((p, i) => <span class="mono" data-slide hidden={i > 0}>fig. {pad(i)} / {p.id}</span>)}
+  </div>
+
+  <div class="work-shot">
+    {
+      projects.map((p, i) => (
+        <a href={`/projects/${p.id}/`} data-slide hidden={i > 0}>
+          <Image
+            src={p.data.images[0].src}
+            alt={p.data.images[0].alt}
+            widths={[480, 820, 1280]}
+            sizes="(max-width: 640px) 100vw, 640px"
+            loading={i === 0 ? 'eager' : 'lazy'}
+          />
+        </a>
+      ))
+    }
+  </div>
+
+  <div class="work-tabs" role="tablist" aria-label="Projects">
+    {
+      projects.map((p, i) => (
+        <button type="button" role="tab" aria-selected={i === 0 ? 'true' : 'false'} aria-label={p.data.title} data-tab={i}>
+          {tabCode(p)}
+        </button>
+      ))
+    }
+  </div>
+
+  <div class="work-info">
+    {
+      projects.map((p, i) => (
+        <div data-slide hidden={i > 0}>
+          <p class="mono">{pad(i)} / {total}</p>
+          <p class="meta">{metaLine(p)}</p>
+          <p>{p.data.intro}</p>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="work-bar">
+    <button type="button" data-step="-1" aria-label="Previous project">&larr;</button>
+    {
+      projects.map((p, i) => (
+        <a
+          class="open"
+          href={p.data.repo ?? p.data.link ?? `/projects/${p.id}/`}
+          aria-label={`${p.data.title} source`}
+          data-slide
+          hidden={i > 0}
+        >
+          &nearr;
+        </a>
+      ))
+    }
+    {
+      projects.map((p, i) => (
+        <a class="title" href={`/projects/${p.id}/`} data-slide hidden={i > 0}>
+          {p.data.title}
+        </a>
+      ))
+    }
+    <button type="button" data-step="1" aria-label="Next project">&rarr;</button>
+  </div>
+</div>
+
+<script>
+  for (const panel of document.querySelectorAll<HTMLElement>('[data-work]')) {
+    const tabs = [...panel.querySelectorAll<HTMLButtonElement>('[data-tab]')];
+    const steps = [...panel.querySelectorAll<HTMLButtonElement>('[data-step]')];
+    // each column holds one [data-slide] per project, in the same order
+    const columns = [...panel.querySelectorAll('.work-blank, .work-shot, .work-info')].map((col) => [
+      ...col.querySelectorAll<HTMLElement>(':scope > [data-slide]'),
+    ]);
+    columns.push([...panel.querySelectorAll<HTMLElement>('.work-bar .open')]);
+    columns.push([...panel.querySelectorAll<HTMLElement>('.work-bar .title')]);
+
+    let current = 0;
+
+    function show(i: number) {
+      current = i;
+      for (const col of columns) col.forEach((el, j) => (el.hidden = j !== i));
+      tabs.forEach((t, j) => t.setAttribute('aria-selected', String(j === i)));
+      steps[0].disabled = i === 0;
+      steps[1].disabled = i === tabs.length - 1;
+    }
+
+    tabs.forEach((t, i) => t.addEventListener('click', () => show(i)));
+    steps.forEach((s) => s.addEventListener('click', () => show(current + Number(s.dataset.step))));
+    show(0);
+  }
+</script>

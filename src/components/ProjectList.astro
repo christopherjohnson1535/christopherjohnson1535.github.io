@@ -1,0 +1,25 @@
+---
+import type { Project } from '../lib/projects';
+
+interface Props {
+  projects: Project[];
+}
+
+const { projects } = Astro.props;
+---
+
+<ul class="index-list">
+  {
+    projects.map((p) => (
+      <li>
+        <span class="mono year">{p.data.year}</span>
+        <a class="name" href={`/projects/${p.id}/`}>{p.data.title}</a>
+        <span class="mono stack">{p.data.stack.join(', ').toLowerCase()}</span>
+        <span class="status">
+          {p.data.status === 'In progress' && <span class="dot" />}
+          {p.data.status}
+        </span>
+      </li>
+    ))
+  }
+</ul>

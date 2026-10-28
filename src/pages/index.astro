@@ -1,0 +1,60 @@
+---
+import Base from '../layouts/Base.astro';
+import Sphere from '../components/Sphere.astro';
+import WorkPanel from '../components/WorkPanel.astro';
+import ProjectList from '../components/ProjectList.astro';
+import { getProjects } from '../lib/projects';
+
+const projects = await getProjects();
+const withImages = projects.filter((p) => p.data.images.length);
+const current = projects.find((p) => p.data.status === 'In progress');
+---
+
+<Base>
+  <section class="hero" aria-label="Introduction">
+    <div class="hero-side">
+      <p class="mono"><span class="n">01.</span> software, mostly for home</p>
+      <h1 class="display">Small software<br /><span>for home</span></h1>
+      <p class="mono">
+        <span class="n">03.</span> <a href="https://github.com/christopherjohnson1535">github / christopherjohnson1535</a>
+      </p>
+    </div>
+
+    <Sphere />
+
+    <div class="hero-side right">
+      <p class="mono"><span class="n">02.</span> projects and notes</p>
+      <p class="display">Written<br /><span>to last</span></p>
+      {
+        current && (
+          <p class="mono">
+            <span class="n">04.</span> now building{' '}
+            <a href={`/projects/${current.id}/`} style="color: var(--accent)">
+              {current.data.title.toLowerCase()}
+            </a>
+          </p>
+        )
+      }
+    </div>
+  </section>
+
+  {
+    withImages.length > 0 && (
+      <section class="work" aria-labelledby="work">
+        <div class="section-head">
+          <div>
+            <p>Things I've built, and the one I'm building now.</p>
+            <h2 class="display" id="work">Selected work</h2>
+          </div>
+          <a class="cell-link" href="/projects/">All projects</a>
+        </div>
+        <WorkPanel projects={withImages} />
+      </section>
+    )
+  }
+
+  <section class="index" aria-labelledby="index">
+    <h2 class="display" id="index">Index</h2>
+    <ProjectList projects={projects} />
+  </section>
+</Base>

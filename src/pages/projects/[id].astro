@@ -1,0 +1,79 @@
+---
+import { render } from 'astro:content';
+import { Image } from 'astro:assets';
+import Base from '../../layouts/Base.astro';
+import { getProjects } from '../../lib/projects';
+
+export async function getStaticPaths() {
+  const projects = await getProjects();
+  return projects.map((project) => ({ params: { id: project.id }, props: { project } }));
+}
+
+const { project } = Astro.props;
+const { title, intro, year, status, stack, repo, link, images } = project.data;
+const { Content } = await render(project);
+
+const repoName = repo?.replace(/\/$/, '').split('/').pop();
+const fig = (i: number) => (images.length > 1 ? `01${'abcdefgh'[i]}` : '01');
+---
+
+<Base title={title} description={intro}>
+  <p class="back mono"><a href="/projects/">&larr; all projects</a></p>
+
+  <div class="project-head">
+    <div>
+      <p class="mono">fig. 01 / {project.id}</p>
+      <h1 class="display">{title}</h1>
+    </div>
+    <p class="lede">{intro}</p>
+  </div>
+
+  <dl class="facts">
+    <div>
+      <dt>status</dt>
+      <dd>{status === 'In progress' && <span class="dot" />}{status}</dd>
+    </div>
+    <div>
+      <dt>year</dt>
+      <dd>{year}</dd>
+    </div>
+    <div>
+      <dt>built with</dt>
+      <dd>{stack.join(', ')}</dd>
+    </div>
+    {
+      (repo || link) && (
+        <div>
+          <dt>{repo ? 'source' : 'link'}</dt>
+          <dd>{repo ? <a href={repo}>{repoName} on GitHub &nearr;</a> : <a href={link}>{link} &nearr;</a>}</dd>
+        </div>
+      )
+    }
+  </dl>
+
+  {
+    images.length > 0 && (
+      <div class="shots">
+        {images.map((img, i) => (
+          <figure>
+            <Image
+              src={img.src}
+              alt={img.alt}
+              widths={[480, 820, 1280]}
+              sizes="(max-width: 900px) 100vw, 560px"
+              loading={i === 0 ? 'eager' : 'lazy'}
+            />
+            <figcaption class="mono">
+              fig. {fig(i)}
+              {img.caption && ` / ${img.caption.charAt(0).toLowerCase()}${img.caption.slice(1)}`}
+            </figcaption>
+          </figure>
+        ))}
+      </div>
+    )
+  }
+
+  <div class="writeup">
+    <Content />
+  </div>
+</Base>

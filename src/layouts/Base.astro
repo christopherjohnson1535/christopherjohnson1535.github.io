@@ -1,0 +1,72 @@
+---
+import '../styles/global.css';
+import { getProjects } from '../lib/projects';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const name = 'Christopher Johnson';
+const github = 'https://github.com/christopherjohnson1535';
+const { title, description = "Small software for home. Projects I've built and the one I'm building now." } = Astro.props;
+const pageTitle = title ? `${title} | ${name}` : name;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const onProjects = Astro.url.pathname.startsWith('/projects');
+
+const current = (await getProjects()).find((p) => p.data.status === 'In progress');
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#1b1c1e" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:type" content="website" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Jost:wght@200;300;400;500&display=swap"
+    />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="site-header">
+        <a class="brand" href="/">{name}</a>
+        <nav class="site-nav" aria-label="Main">
+          <a href="/projects/" aria-current={onProjects ? 'page' : undefined}><span class="n">01</span>Projects</a>
+          <a href={github}><span class="n">02</span>GitHub</a>
+        </nav>
+        {
+          current && (
+            <a class="now" href={`/projects/${current.id}/`}>
+              <span class="dot" />
+              now building {current.data.title.toLowerCase()}
+            </a>
+          )
+        }
+      </header>
+
+      <main>
+        <slot />
+      </main>
+
+      <footer class="site-footer">
+        <span>{name}, {new Date().getFullYear()}</span>
+        <a href={github}>GitHub</a>
+      </footer>
+    </div>
+  </body>
+</html>

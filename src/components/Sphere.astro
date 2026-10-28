@@ -1,0 +1,94 @@
+---
+// Dots on a sphere, turning slowly. Plain canvas, no libraries.
+const points = 150;
+---
+
+<div class="sphere" aria-hidden="true">
+  <canvas width="300" height="300" data-points={points}></canvas>
+  <p class="mono">pts {points} / rot <span data-rot>0.00</span> rad</p>
+</div>
+
+<script>
+  const canvas = document.querySelector<HTMLCanvasElement>('.sphere canvas');
+  const readout = document.querySelector<HTMLElement>('.sphere [data-rot]');
+
+  if (canvas) {
+    const ctx = canvas.getContext('2d')!;
+    const n = Number(canvas.dataset.points) || 150;
+    const tilt = 0.35;
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // fibonacci sphere: evenly spread points without clumping at the poles
+    const pts: [number, number, number][] = [];
+    const golden = Math.PI * (3 - Math.sqrt(5));
+    for (let i = 0; i < n; i++) {
+      const y = 1 - (2 * (i + 0.5)) / n;
+      const r = Math.sqrt(1 - y * y);
+      pts.push([Math.cos(golden * i) * r, y, Math.sin(golden * i) * r]);
+    }
+
+    let size = 0;
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      size = canvas!.clientWidth;
+      canvas!.width = size * dpr;
+      canvas!.height = size * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    let rot = 0.42;
+    let frame = 0;
+
+    function draw() {
+      const R = size * 0.44;
+      const c = size / 2;
+      const cosR = Math.cos(rot), sinR = Math.sin(rot);
+      const cosT = Math.cos(tilt), sinT = Math.sin(tilt);
+
+      ctx.clearRect(0, 0, size, size);
+      for (const [x, y, z] of pts) {
+        // spin around y, then tip towards the viewer
+        const x1 = x * cosR + z * sinR;
+        const z1 = -x * sinR + z * cosR;
+        const y2 = y * cosT - z1 * sinT;
+        const z2 = y * sinT + z1 * cosT;
+
+        const depth = (z2 + 1) / 2; // 0 = back, 1 = front
+        ctx.globalAlpha = 0.15 + depth * 0.75;
+        ctx.fillStyle = '#d6d5d1';
+        ctx.beginPath();
+        ctx.arc(c + x1 * R, c + y2 * R, 0.6 + depth * 1.1, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      if (readout && frame++ % 12 === 0) {
+        readout.textContent = (rot % (Math.PI * 2)).toFixed(2);
+      }
+    }
+
+    let running = false;
+    function tick() {
+      if (!running) return;
+      rot += 0.0035;
+      draw();
+      requestAnimationFrame(tick);
+    }
+
+    resize();
+    draw();
+    window.addEventListener('resize', () => {
+      resize();
+      draw();
+    });
+
+    if (!still) {
+      // only spin while it's on screen
+      new IntersectionObserver(([entry]) => {
+        const was = running;
+        running = entry.isIntersecting;
+        if (running && !was) requestAnimationFrame(tick);
+      }).observe(canvas);
+    }
+  }
+</script>
