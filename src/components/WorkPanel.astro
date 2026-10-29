@@ -70,8 +70,8 @@ const pad = (i: number) => String(i + 1).padStart(2, '0');
       projects.map((p, i) => (
         <a
           class="open"
-          href={p.data.repo ?? p.data.link ?? `/projects/${p.id}/`}
-          aria-label={`${p.data.title} source`}
+          href={p.data.link ?? p.data.repo ?? `/projects/${p.id}/`}
+          aria-label={p.data.link ? `Open ${p.data.title}` : `${p.data.title} source`}
           data-slide
           hidden={i > 0}
         >

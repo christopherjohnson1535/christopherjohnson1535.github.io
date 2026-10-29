@@ -412,6 +412,22 @@ img { max-width: 100%; height: auto; }
   font-weight: 300;
   color: var(--soft);
 }
+.head-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+}
+.visit {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--cell);
+  padding: 0 24px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 15px;
+}
 
 .facts {
   display: grid;
@@ -452,7 +468,8 @@ img { max-width: 100%; height: auto; }
   border-right: 1px solid var(--line);
 }
 .shots figure:last-child { border-right: 0; }
-.shots .shot-frame img { aspect-ratio: 16 / 15; }
+/* project page screenshots keep their own shape; the home panel crops them to 16:10 */
+.shots .shot-frame img { aspect-ratio: auto; }
 .shots figcaption {
   margin-top: 14px;
   color: var(--dim);
@@ -615,6 +632,7 @@ img { max-width: 100%; height: auto; }
 .site-nav a,
 .site-header .now,
 .cell-link,
+.visit,
 .work-bar > a,
 .work-bar > button,
 .index-list li,
@@ -628,6 +646,7 @@ img { max-width: 100%; height: auto; }
 .site-nav a:hover,
 .site-header .now:hover,
 .cell-link:hover,
+.visit:hover,
 .work-bar > a:hover,
 .work-bar > button:not(:disabled):hover,
 .index-list li:hover,

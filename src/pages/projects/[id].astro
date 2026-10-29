@@ -14,6 +14,9 @@ const { title, intro, year, status, stack, repo, link, images } = project.data;
 const { Content } = await render(project);
 
 const repoName = repo?.replace(/\/$/, '').split('/').pop();
+// "cardnight.someone.workers.dev" reads as "cardnight on workers.dev"
+const host = link ? new URL(link).host.split('.') : [];
+const site = host.length > 2 ? `${host[0]} on ${host.slice(-2).join('.')}` : host.join('.');
 const fig = (i: number) => (images.length > 1 ? `01${'abcdefgh'[i]}` : '01');
 ---
 
@@ -25,7 +28,16 @@ const fig = (i: number) => (images.length > 1 ? `01${'abcdefgh'[i]}` : '01');
       <p class="mono">fig. 01 / {project.id}</p>
       <h1 class="display">{title}</h1>
     </div>
-    <p class="lede">{intro}</p>
+    <div class="head-side">
+      <p class="lede">{intro}</p>
+      {
+        link && (
+          <a class="visit" href={link}>
+            Open {title} <span class="arrow ne">&nearr;</span>
+          </a>
+        )
+      }
+    </div>
   </div>
 
   <dl class="facts">
@@ -42,12 +54,24 @@ const fig = (i: number) => (images.length > 1 ? `01${'abcdefgh'[i]}` : '01');
       <dd>{stack.join(', ')}</dd>
     </div>
     {
-      (repo || link) && (
+      link && (
         <div>
-          <dt>{repo ? 'source' : 'link'}</dt>
+          <dt>live</dt>
           <dd>
-            <a href={repo ?? link}>
-              {repo ? `${repoName} on GitHub` : link} <span class="arrow ne">&nearr;</span>
+            <a href={link}>
+              {site} <span class="arrow ne">&nearr;</span>
+            </a>
+          </dd>
+        </div>
+      )
+    }
+    {
+      repo && (
+        <div>
+          <dt>source</dt>
+          <dd>
+            <a href={repo}>
+              {repoName} on GitHub <span class="arrow ne">&nearr;</span>
             </a>
           </dd>
         </div>

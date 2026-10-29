@@ -26,6 +26,7 @@ kind: Household         # optional, shown next to the year
 status: In progress     # "In progress" gets the dot and the "now building" label
 stack: [Rust, Next.js, Postgres]
 repo: https://github.com/christopherjohnson1535/recipe-box
+link: https://example.com # optional, the live site; adds an "Open" button
 code: RB                # optional tab label on the home page, defaults to initials
 draft: false            # true = only visible in npm run dev
 images:
