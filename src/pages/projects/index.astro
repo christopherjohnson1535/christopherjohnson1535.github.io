@@ -1,14 +1,22 @@
 ---
+import Section from '@ordinate/components/section';
 import Base from '../../layouts/Base.astro';
-import ProjectList from '../../components/ProjectList.astro';
+import SheetIndex from '../../components/SheetIndex';
 import { getProjects } from '../../lib/projects';
 
 const projects = await getProjects();
 ---
 
 <Base title="Projects" description="Everything I've built or am building.">
-  <section class="index" style="margin-top: 72px">
-    <h1 class="display">Projects</h1>
-    <ProjectList projects={projects} />
-  </section>
+  <Section heading="Projects" headingLevel={1} description="Everything I've built or am building." width="narrow" spacing="large">
+    <SheetIndex
+      items={projects.map((p) => ({
+        id: p.id,
+        title: p.data.title,
+        href: `/projects/${p.id}/`,
+        stack: p.data.stack.join(', ').toLowerCase(),
+        status: p.data.status,
+      }))}
+    />
+  </Section>
 </Base>

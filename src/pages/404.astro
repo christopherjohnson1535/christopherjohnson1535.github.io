@@ -1,14 +1,20 @@
 ---
+import Button from '@ordinate/components/button';
+import Opening from '@ordinate/components/opening';
+import SpaceBetween from '@ordinate/components/space-between';
 import Base from '../layouts/Base.astro';
 ---
 
 <Base title="Not found">
-  <section class="lost">
-    <p class="mono"><span class="n">404.</span> nothing here</p>
-    <h1 class="display">
-      <span class="line"><span>Nothing at</span></span>
-      <span class="line"><span>this address</span></span>
-    </h1>
-    <p><a href="/">Go to the home page</a> or <a href="/projects/">see all projects</a>.</p>
-  </section>
+  <Opening
+    variant="statement"
+    kicker="404 · nothing here"
+    title="Nothing at this address."
+    description="The page may have moved, or the link may have a typo in it."
+  >
+    <SpaceBetween slot="actions" direction="horizontal" size="xs">
+      <Button variant="primary" href="/">Go to the home page</Button>
+      <Button href="/projects/">See all projects</Button>
+    </SpaceBetween>
+  </Opening>
 </Base>

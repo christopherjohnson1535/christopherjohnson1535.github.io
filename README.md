@@ -2,7 +2,7 @@
 
 My personal site. https://christopherjohnson1535.github.io
 
-Built with [Astro](https://astro.build). Pushing to `main` deploys it to GitHub Pages.
+Built with [Astro](https://astro.build) and [Ordinate](https://github.com/christopherjohnson1535/ordinate), pinned to revision 2026.1. Pushing to `main` deploys it to GitHub Pages.
 
 ```
 npm install
@@ -11,6 +11,22 @@ npm run build    # what actually gets deployed, in dist/
 ```
 
 Needs Node 22.
+
+## Updating Ordinate
+
+Ordinate isn't on npm, so its packages live in `vendor/` as tarballs. To move to a newer build:
+
+```
+# in the ordinate repo
+npm run build && npm run build -w global-styles
+(cd lib/components && npm pack --pack-destination ../../../christopherjohnson1535.github.io/vendor)
+(cd global-styles && npm pack --pack-destination ../../christopherjohnson1535.github.io/vendor)
+
+# back here
+npm install ./vendor/ordinate-components-*.tgz ./vendor/ordinate-global-styles-*.tgz
+```
+
+The revision is set in `src/lib/site.ts`. Changing it is what changes the look; updating the packages alone doesn't.
 
 ## Adding a project
 
@@ -27,7 +43,7 @@ status: In progress     # "In progress" gets the dot and the "now building" labe
 stack: [Rust, Next.js, Postgres]
 repo: https://github.com/christopherjohnson1535/recipe-box
 link: https://example.com # optional, the live site; adds an "Open" button
-code: RB                # optional tab label on the home page, defaults to initials
+code: RB                # optional label on the home page drawing, defaults to initials
 draft: false            # true = only visible in npm run dev
 images:
   - src: ../../assets/recipe-box/day.jpg
@@ -37,7 +53,7 @@ images:
 
 ## What it does
 
-Each `##` heading becomes a numbered row on the project page.
+The write-up is set with Ordinate's Article, so `##` headings each get a rule above them.
 ```
 
-Projects with at least one image show up in the "Selected work" panel on the home page.
+Every project is plotted as a point on the home page drawing (up to six). The first project with an image is the figure under "Selected work".

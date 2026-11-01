@@ -1,0 +1,19 @@
+/* Ordinate draws almost everything. This file only covers the page itself. */
+
+body {
+  background-color: var(--ord-color-background-container);
+}
+
+/* Screenshots fill their figure frames. */
+.shot {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+}
+
+/* Figures on a project page sit side by side, then stack on a phone. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: var(--ord-space-xxl) var(--ord-space-xl);
+}

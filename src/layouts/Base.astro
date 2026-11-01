@@ -1,21 +1,26 @@
 ---
-import { ClientRouter } from 'astro:transitions';
-import '../styles/global.css';
+import '@ordinate/global-styles/index.css';
+import '../styles/site.css';
+import Header from '../components/Header';
+import Footer from '../components/Footer';
 import { getProjects } from '../lib/projects';
+import { name, revision } from '../lib/site';
 
 interface Props {
   title?: string;
   description?: string;
 }
 
-const name = 'Christopher Johnson';
-const github = 'https://github.com/christopherjohnson1535';
 const { title, description = "Small software for home. Projects I've built and the one I'm building now." } = Astro.props;
 const pageTitle = title ? `${title} | ${name}` : name;
 const canonical = new URL(Astro.url.pathname, Astro.site);
-const onProjects = Astro.url.pathname.startsWith('/projects');
 
-const current = (await getProjects()).find((p) => p.data.status === 'In progress');
+const projects = await getProjects();
+const current = projects.find((p) => p.data.status === 'In progress');
+const live = projects.filter((p) => p.data.link);
+
+// Ordinate reads its mode and revision from classes, so they are set here and need no script.
+const bodyClass = `ord-dark-mode ord-revision-${revision.replace(/\./g, '-')}`;
 ---
 
 <!doctype html>
@@ -24,7 +29,7 @@ const current = (await getProjects()).find((p) => p.data.status === 'In progress
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark" />
-    <meta name="theme-color" content="#1b1c1e" />
+    <meta name="theme-color" content="#1e2023" />
     <title>{pageTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
@@ -34,71 +39,19 @@ const current = (await getProjects()).find((p) => p.data.status === 'In progress
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:type" content="website" />
-
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Jost:wght@200;300;400;500&display=swap"
-    />
-
-    <!--
-      Runs before first paint. `js` turns on the animated states in the CSS
-      (without it everything just shows). `intro` plays the build-in sequence,
-      once per visit, on the home page.
-    -->
-    <script is:inline>
-      (function () {
-        var html = document.documentElement;
-        html.classList.add('js');
-        document.addEventListener('astro:after-swap', function () {
-          html.classList.add('js');
-        });
-        try {
-          var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-          if (location.pathname === '/' && !still && !sessionStorage.getItem('intro-seen')) {
-            html.classList.add('intro');
-            sessionStorage.setItem('intro-seen', '1');
-          }
-        } catch (e) {}
-      })();
-    </script>
-
-    <ClientRouter />
   </head>
-  <body>
-    <div class="lattice" aria-hidden="true" transition:persist="lattice"></div>
-    <div class="lattice-glow" aria-hidden="true" transition:persist="lattice-glow"></div>
-
-    <div class="wrap">
-      <header class="site-header" transition:name="site-header">
-        <a class="brand" href="/">{name}</a>
-        <nav class="site-nav" aria-label="Main">
-          <a href="/projects/" aria-current={onProjects ? 'page' : undefined}><span class="n">01</span>Projects</a>
-          <a href={github}><span class="n">02</span>GitHub</a>
-        </nav>
-        {
-          current && (
-            <a class="now" href={`/projects/${current.id}/`}>
-              <span class="dot" />
-              now building {current.data.title.toLowerCase()}
-            </a>
-          )
-        }
-      </header>
-
-      <main>
-        <slot />
-      </main>
-
-      <footer class="site-footer">
-        <span>{name}, {new Date().getFullYear()}</span>
-        <a href={github}>GitHub <span class="arrow ne">&nearr;</span></a>
-      </footer>
-    </div>
-
-    <script>
-      import '../scripts/page';
-    </script>
+  <body class={bodyClass}>
+    <Header
+      client:load
+      path={Astro.url.pathname}
+      current={current && { title: current.data.title, href: `/projects/${current.id}/` }}
+    />
+    <main>
+      <slot />
+    </main>
+    <Footer
+      projects={projects.map((p) => ({ title: p.data.title, href: `/projects/${p.id}/` }))}
+      elsewhere={live.map((p) => ({ text: `${p.data.title} (live)`, href: p.data.link! }))}
+    />
   </body>
 </html>
