@@ -11,7 +11,7 @@ const projects = defineCollection({
       intro: z.string(), // the line under the title on the project page
       year: z.number(),
       kind: z.string().optional(), // e.g. "Household", shown next to the year
-      code: z.string().max(3).optional(), // short tab label, defaults to initials
+      code: z.string().max(3).optional(), // label on the home page drawing, defaults to initials
       status: z.string(),
       stack: z.array(z.string()),
       repo: z.string().optional(),

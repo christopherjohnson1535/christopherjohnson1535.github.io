@@ -8,6 +8,11 @@
     "preview": "astro preview"
   },
   "dependencies": {
-    "astro": "^7.4.2"
+    "@astrojs/react": "^7.1.2",
+    "@ordinate/components": "file:vendor/ordinate-components-0.1.0.tgz",
+    "@ordinate/global-styles": "file:vendor/ordinate-global-styles-0.1.0.tgz",
+    "astro": "^7.4.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
   }
 }

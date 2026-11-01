@@ -1,109 +1,92 @@
 ---
 import { render } from 'astro:content';
 import { Image } from 'astro:assets';
+import Article from '@ordinate/components/article';
+import Button from '@ordinate/components/button';
+import Figure from '@ordinate/components/figure';
+import Link from '@ordinate/components/link';
+import Opening from '@ordinate/components/opening';
+import Section from '@ordinate/components/section';
+import SpaceBetween from '@ordinate/components/space-between';
+import TitleBlock from '@ordinate/components/title-block';
 import Base from '../../layouts/Base.astro';
 import { getProjects } from '../../lib/projects';
 
 export async function getStaticPaths() {
   const projects = await getProjects();
-  return projects.map((project) => ({ params: { id: project.id }, props: { project } }));
+  return projects.map((project, i) => ({ params: { id: project.id }, props: { project, sheet: i + 1 } }));
 }
 
-const { project } = Astro.props;
-const { title, intro, year, status, stack, repo, link, images } = project.data;
+const { project, sheet } = Astro.props;
+const { title, intro, year, kind, status, stack, repo, link, images } = project.data;
 const { Content } = await render(project);
 
 const repoName = repo?.replace(/\/$/, '').split('/').pop();
 // "cardnight.someone.workers.dev" reads as "cardnight on workers.dev"
 const host = link ? new URL(link).host.split('.') : [];
 const site = host.length > 2 ? `${host[0]} on ${host.slice(-2).join('.')}` : host.join('.');
-const fig = (i: number) => (images.length > 1 ? `01${'abcdefgh'[i]}` : '01');
+const number = String(sheet).padStart(2, '0');
+const fig = (i: number) => (images.length > 1 ? `${number}${'abcdefgh'[i]}` : number);
+
+const facts = [
+  { label: 'Status', value: status },
+  { label: 'Year', value: kind ? `${year} · ${kind}` : String(year) },
+  { label: 'Built with', value: stack.join(', ') },
+  ...(link ? [{ label: 'Live', value: site }] : []),
+  ...(repo ? [{ label: 'Source', value: `${repoName} on GitHub` }] : []),
+];
 ---
 
 <Base title={title} description={intro}>
-  <p class="back mono"><a href="/projects/"><span class="arrow w">&larr;</span> all projects</a></p>
-
-  <div class="project-head">
-    <div>
-      <p class="mono">fig. 01 / {project.id}</p>
-      <h1 class="display">{title}</h1>
-    </div>
-    <div class="head-side">
-      <p class="lede">{intro}</p>
-      {
-        link && (
-          <a class="visit" href={link}>
-            Open {title} <span class="arrow ne">&nearr;</span>
-          </a>
-        )
-      }
-    </div>
-  </div>
-
-  <dl class="facts">
-    <div>
-      <dt>status</dt>
-      <dd>{status === 'In progress' && <span class="dot" />}{status}</dd>
-    </div>
-    <div>
-      <dt>year</dt>
-      <dd>{year}</dd>
-    </div>
-    <div>
-      <dt>built with</dt>
-      <dd>{stack.join(', ')}</dd>
-    </div>
+  <Opening variant="statement" title={title} description={intro}>
+    <span slot="kicker"><Link href="/projects/">Projects</Link> / sheet {number}</span>
     {
-      link && (
-        <div>
-          <dt>live</dt>
-          <dd>
-            <a href={link}>
-              {site} <span class="arrow ne">&nearr;</span>
-            </a>
-          </dd>
-        </div>
+      (link || repo) && (
+        <SpaceBetween slot="actions" direction="horizontal" size="xs">
+          {link && (
+            <Button variant="primary" href={link} external={true}>
+              Open {title}
+            </Button>
+          )}
+          {repo && (
+            <Button href={repo} external={true}>
+              Source on GitHub
+            </Button>
+          )}
+        </SpaceBetween>
       )
     }
-    {
-      repo && (
-        <div>
-          <dt>source</dt>
-          <dd>
-            <a href={repo}>
-              {repoName} on GitHub <span class="arrow ne">&nearr;</span>
-            </a>
-          </dd>
-        </div>
-      )
-    }
-  </dl>
+  </Opening>
+
+  <Section spacing="small">
+    <TitleBlock columns={facts.length > 4 ? 5 : 4} items={facts} />
+  </Section>
 
   {
     images.length > 0 && (
-      <div class="shots">
-        {images.map((img, i) => (
-          <figure>
-            <span class="shot-frame" transition:name={i === 0 ? `shot-${project.id}` : undefined}>
+      <Section heading="Screens" rule="top" width="wide">
+        <div class="figures">
+          {images.map((img, i) => (
+            <Figure label={`fig. ${fig(i)}`} caption={img.caption}>
               <Image
+                slot="media"
+                class="shot"
                 src={img.src}
                 alt={img.alt}
                 widths={[480, 820, 1280]}
-                sizes="(max-width: 900px) 100vw, 560px"
+                sizes="(max-width: 900px) 100vw, 640px"
                 loading={i === 0 ? 'eager' : 'lazy'}
               />
-            </span>
-            <figcaption class="mono">
-              fig. {fig(i)}
-              {img.caption && ` / ${img.caption.charAt(0).toLowerCase()}${img.caption.slice(1)}`}
-            </figcaption>
-          </figure>
-        ))}
-      </div>
+            </Figure>
+          ))}
+        </div>
+      </Section>
     )
   }
 
-  <div class="writeup">
-    <Content />
-  </div>
+  <Section width="narrow">
+    <Article>
+      <Content />
+    </Article>
+  </Section>
 </Base>

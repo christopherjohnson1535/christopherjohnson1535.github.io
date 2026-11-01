@@ -1,0 +1,313 @@
+---
+// The home page drawing: a plan of a small house drawn onto x and y axes, with each project plotted
+// as a point. The plan draws itself in once per visit, then a crosshair moves from point to point and
+// reads out its coordinates. It is plain SVG and CSS, coloured with Ordinate's tokens.
+interface Point {
+  code: string;
+  id: string;
+}
+
+interface Props {
+  points: Point[];
+}
+
+// Where the projects land, in grid units, in the order they are listed.
+const spots: [number, number][] = [
+  [6.4, 3.6],
+  [3.2, 4.6],
+  [6.8, 1.6],
+  [4.2, 2.4],
+  [8.6, 5.2],
+  [2.6, 1.2],
+];
+
+const ox = 70;
+const oy = 330;
+const unit = 44;
+const px = (x: number) => +(ox + x * unit).toFixed(1);
+const py = (y: number) => +(oy - y * unit).toFixed(1);
+
+const points = Astro.props.points.slice(0, spots.length).map((p, i) => {
+  const [x, y] = spots[i];
+  return { ...p, x, y, cx: px(x), cy: py(y), i };
+});
+
+const xs = Array.from({ length: 11 }, (_, i) => i);
+const ys = Array.from({ length: 7 }, (_, i) => i);
+
+// Hatching for the kitchen, as 45 degree lines clipped to its walls by hand.
+const hatch = (() => {
+  const [x0, x1, y0, y1] = [158, 290, 66, 176];
+  const out: string[] = [];
+  for (let c = x0 - y1; c < x1 - y0; c += 8.5) {
+    const pts: [number, number][] = [];
+    for (const y of [y0, y1]) if (c + y >= x0 && c + y <= x1) pts.push([c + y, y]);
+    for (const x of [x0, x1]) if (x - c >= y0 && x - c <= y1) pts.push([x, x - c]);
+    pts.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    if (pts.length >= 2) {
+      const [a, b] = [pts[0], pts[pts.length - 1]];
+      out.push(`M${a[0].toFixed(1)} ${a[1].toFixed(1)}L${b[0].toFixed(1)} ${b[1].toFixed(1)}`);
+    }
+  }
+  return out.join('');
+})();
+
+// The crosshair's tour: three seconds a point, the last of each spent moving to the next.
+const n = points.length;
+const period = 3 * n;
+const seg = 100 / n;
+const move = seg * 0.3;
+const pct = (v: number) => `${+v.toFixed(2)}%`;
+const ease = 'animation-timing-function:cubic-bezier(.65,0,.35,1)';
+const tour = (axis: 'X' | 'Y', key: 'cx' | 'cy') =>
+  points.map((p, i) => `${pct(i * seg)},${pct((i + 1) * seg - move)}{transform:translate${axis}(${p[key]}px);${ease}}`).join('') +
+  `100%{transform:translate${axis}(${points[0]?.[key]}px)}`;
+const spanOn = (i: number, on: string, off: string) => {
+  const s = i * seg;
+  const e = (i + 1) * seg - move;
+  return i === 0
+    ? `0%,${pct(e)}{${on}}${pct(e + 2)},${pct(100 - 2)}{${off}}100%{${on}}`
+    : `0%,${pct(s - 2)}{${off}}${pct(s)},${pct(e)}{${on}}${pct(e + 2)},100%{${off}}`;
+};
+
+const tourCss =
+  n > 1
+    ? [
+        `@keyframes plan-xx{${tour('X', 'cx')}}`,
+        `@keyframes plan-yy{${tour('Y', 'cy')}}`,
+        ...points.map((p) => `@keyframes plan-hl-${p.i}{${spanOn(p.i, 'fill:var(--plan-accent)', 'fill:var(--plan-ground)')}}`),
+        ...points.map((p) => `@keyframes plan-ro-${p.i}{${spanOn(p.i, 'opacity:1', 'opacity:0')}}`),
+        `.plan .xh-x{animation:plan-xx ${period}s var(--cycle) infinite both}`,
+        `.plan .xh-y{animation:plan-yy ${period}s var(--cycle) infinite both}`,
+        ...points.map((p) => `.plan .pt-${p.i}{animation:plan-pop .4s ease-out var(--d) both,plan-hl-${p.i} ${period}s var(--cycle) infinite both}`),
+        ...points.map((p) => `.plan .ro-${p.i}{animation:plan-ro-${p.i} ${period}s var(--cycle) infinite both}`),
+        ...points.map((p) => `.plan-seen .plan .pt-${p.i}{animation:plan-hl-${p.i} ${period}s var(--cycle) infinite both}`),
+      ].join('\n')
+    : '';
+const first = points[0];
+---
+
+<svg
+  class="plan"
+  viewBox="0 0 560 380"
+  role="img"
+  aria-label={`Plan of a small house drawn on x and y axes, with ${n} projects plotted as points: ${points.map((p) => p.id).join(', ')}`}
+>
+  <g class="grid">
+    {xs.map((i) => <line x1={px(i)} y1={oy} x2={px(i)} y2={py(6.6)} />)}
+    {ys.map((i) => <line x1={ox} y1={py(i)} x2={px(10)} y2={py(i)} />)}
+  </g>
+  <g class="ticks">
+    {xs.map((i) => <text class="t mid" x={px(i)} y={oy + 18}>{i}</text>)}
+    {ys.map((i) => <text class="t end" x={ox - 12} y={py(i) + 3}>{i}</text>)}
+    <text class="t ink" x={ox + 6} y="30">y</text>
+    <text class="t ink" x={px(10) + 12} y={oy - 8}>x</text>
+  </g>
+  <line class="axis" style="--len: 460px" x1={ox} y1={oy} x2={ox + 460} y2={oy}></line>
+  <line class="axis" style="--len: 310px" x1={ox} y1={oy} x2={ox} y2={oy - 310}></line>
+
+  <path class="hatch" d={hatch}></path>
+  <path class="wall" style="--len: 968px; --d: 1.1s" d="M158 286h264v-220h-264z"></path>
+  <path class="wall inner" style="--len: 88px; --d: 2.3s" d="M290 66v88"></path>
+  <path class="wall inner" style="--len: 88px; --d: 2.45s" d="M290 198v88"></path>
+  <path class="wall inner" style="--len: 88px; --d: 2.6s" d="M158 176h88"></path>
+  <path class="door" d="M246 286a44 44 0 0 1 -44 -44"></path>
+  <text class="t room" x="174" y="90">KITCHEN</text>
+  <text class="t room" x="306" y="90">TABLE</text>
+  <text class="t room" x="174" y="200">WORKSHOP</text>
+
+  {points.map((p) => <line class="proj" style={`--d: ${3.4 + p.i * 0.4}s`} x1={ox} y1={p.cy} x2={p.cx} y2={p.cy} />)}
+
+  {
+    first && (
+      <g class="xh">
+        <g class="xh-x" style={`transform: translateX(${first.cx}px)`}>
+          <line x1="0" y1={py(6.6)} x2="0" y2={oy} />
+          <path d={`M0 ${oy}l-4 7h8z`} />
+        </g>
+        <g class="xh-y" style={`transform: translateY(${first.cy}px)`}>
+          <line x1={ox} y1="0" x2={px(10)} y2="0" />
+          <path d={`M${ox} 0l-7 -4v8z`} />
+        </g>
+        {points.map((p) => (
+          <text class={`t ro ro-${p.i}`} x={px(10)} y="30">
+            {p.code} · {p.id} · x {p.x} · y {p.y}
+          </text>
+        ))}
+      </g>
+    )
+  }
+
+  {points.map((p) => <circle class={`pt pt-${p.i}`} style={`--d: ${3.8 + p.i * 0.4}s`} cx={p.cx} cy={p.cy} r="5" />)}
+  {points.map((p) => <text class="t lbl" style={`--d: ${3.9 + p.i * 0.4}s`} x={p.cx + 10} y={p.cy + 4}>{p.code}</text>)}
+</svg>
+
+<script is:inline>
+  // The draw-in plays once per visit; after that the drawing starts finished and only the crosshair moves.
+  try {
+    if (sessionStorage.getItem('plan-seen')) document.documentElement.classList.add('plan-seen');
+    sessionStorage.setItem('plan-seen', '1');
+  } catch (e) {}
+</script>
+
+<style is:inline set:html={tourCss}></style>
+
+<style is:global>
+  .plan {
+    --plan-ink: var(--ord-color-text-body);
+    --plan-quiet: var(--ord-color-text-secondary);
+    --plan-rule: var(--ord-color-border-divider);
+    --plan-accent: var(--ord-color-text-accent);
+    --plan-ground: var(--ord-color-background-band-accent);
+    --cycle: 5s;
+    display: block;
+    inline-size: 100%;
+    block-size: auto;
+  }
+  .plan-seen .plan {
+    --cycle: 0.4s;
+  }
+  .plan .grid line {
+    stroke: var(--plan-rule);
+    stroke-dasharray: 1 5;
+    animation: plan-fade 0.8s ease-out 0.1s both;
+  }
+  .plan .t {
+    font-family: var(--ord-font-family-mono);
+    font-size: 9px;
+    fill: var(--plan-quiet);
+  }
+  .plan .t.mid {
+    text-anchor: middle;
+  }
+  .plan .t.end {
+    text-anchor: end;
+  }
+  .plan .t.ink {
+    fill: var(--plan-ink);
+  }
+  .plan .ticks {
+    animation: plan-fade 0.5s ease-out 0.9s both;
+  }
+  .plan .axis,
+  .plan .wall {
+    fill: none;
+    stroke: var(--plan-ink);
+    stroke-dasharray: var(--len);
+  }
+  .plan .axis {
+    stroke-width: 1.5;
+    animation: plan-draw 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.3s both;
+  }
+  .plan .wall {
+    stroke-width: 5;
+    stroke-linecap: square;
+    animation: plan-draw 1.4s cubic-bezier(0.65, 0, 0.35, 1) var(--d) both;
+  }
+  .plan .wall.inner {
+    stroke-width: 2.5;
+    animation-duration: 0.5s;
+  }
+  .plan .hatch {
+    fill: none;
+    stroke: var(--ord-color-hatch);
+    stroke-width: 2;
+    animation: plan-fade 0.6s ease-out 2.9s both;
+  }
+  .plan .door {
+    fill: none;
+    stroke: var(--plan-ink);
+    stroke-dasharray: 3 3;
+    animation: plan-fade 0.5s ease-out 2.9s both;
+  }
+  .plan .room {
+    fill: var(--plan-ink);
+    animation: plan-fade 0.4s ease-out 3.1s both;
+  }
+  .plan .proj {
+    stroke: var(--plan-ink);
+    stroke-dasharray: 2 3;
+    opacity: 0.5;
+    transform-box: fill-box;
+    transform-origin: 0 50%;
+    animation: plan-grow 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d) both;
+  }
+  .plan .pt {
+    fill: var(--plan-ground);
+    stroke: var(--plan-ink);
+    stroke-width: 1.5;
+    transform-box: fill-box;
+    transform-origin: 50% 50%;
+    animation: plan-pop 0.4s ease-out var(--d) both;
+  }
+  .plan .pt-0 {
+    fill: var(--plan-accent);
+  }
+  .plan .lbl {
+    font-size: 10px;
+    fill: var(--plan-ink);
+    animation: plan-fade 0.3s ease-out var(--d) both;
+  }
+  .plan .xh {
+    animation: plan-fade 0.6s ease-out var(--cycle) both;
+  }
+  .plan .xh line {
+    stroke: var(--plan-accent);
+  }
+  .plan .xh path {
+    fill: var(--plan-accent);
+  }
+  .plan .ro {
+    font-size: 10px;
+    fill: var(--plan-accent);
+    text-anchor: end;
+    opacity: 0;
+  }
+  .plan .ro-0 {
+    opacity: 1;
+  }
+  @keyframes plan-fade {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes plan-draw {
+    from {
+      stroke-dashoffset: var(--len);
+    }
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes plan-grow {
+    from {
+      transform: scaleX(0);
+    }
+  }
+  @keyframes plan-pop {
+    0% {
+      transform: scale(0);
+    }
+    70% {
+      transform: scale(1.35);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  /* Seen already this visit: skip the draw-in, keep the crosshair. */
+  .plan-seen .plan :is(.grid line, .ticks, .axis, .wall, .hatch, .door, .room, .proj, .lbl) {
+    animation: none;
+  }
+  .plan-seen .plan .pt {
+    animation: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .plan * {
+      animation: none !important;
+    }
+  }
+  .ord-motion-disabled .plan * {
+    animation: none !important;
+  }
+</style>
