@@ -1,10 +1,13 @@
 ---
 // The home page drawing: a plan of a small house drawn onto x and y axes, with each project plotted
-// as a point. The plan draws itself in once per visit, then a crosshair moves from point to point and
-// reads out its coordinates. It is plain SVG and CSS, coloured with Ordinate's tokens.
+// as a point that links to it. The plan draws itself in once per visit. After that a crosshair moves
+// from point to point and reads out its coordinates; pointing at or tabbing to a point moves it there,
+// and the Pause button stops it. It is SVG and CSS, coloured with Ordinate's tokens, with a short
+// script for the crosshair. Without the script the crosshair rests on the first point.
 interface Point {
   code: string;
   id: string;
+  title: string;
 }
 
 interface Props {
@@ -52,125 +55,175 @@ const hatch = (() => {
   return out.join('');
 })();
 
-// The crosshair's tour: three seconds a point, the last of each spent moving to the next.
-const n = points.length;
-const period = 3 * n;
-const seg = 100 / n;
-const move = seg * 0.3;
-const pct = (v: number) => `${+v.toFixed(2)}%`;
-const ease = 'animation-timing-function:cubic-bezier(.65,0,.35,1)';
-const tour = (axis: 'X' | 'Y', key: 'cx' | 'cy') =>
-  points.map((p, i) => `${pct(i * seg)},${pct((i + 1) * seg - move)}{transform:translate${axis}(${p[key]}px);${ease}}`).join('') +
-  `100%{transform:translate${axis}(${points[0]?.[key]}px)}`;
-const spanOn = (i: number, on: string, off: string) => {
-  const s = i * seg;
-  const e = (i + 1) * seg - move;
-  return i === 0
-    ? `0%,${pct(e)}{${on}}${pct(e + 2)},${pct(100 - 2)}{${off}}100%{${on}}`
-    : `0%,${pct(s - 2)}{${off}}${pct(s)},${pct(e)}{${on}}${pct(e + 2)},100%{${off}}`;
-};
-
-const tourCss =
-  n > 1
-    ? [
-        `@keyframes plan-xx{${tour('X', 'cx')}}`,
-        `@keyframes plan-yy{${tour('Y', 'cy')}}`,
-        ...points.map((p) => `@keyframes plan-hl-${p.i}{${spanOn(p.i, 'fill:var(--plan-accent)', 'fill:var(--plan-ground)')}}`),
-        ...points.map((p) => `@keyframes plan-ro-${p.i}{${spanOn(p.i, 'opacity:1', 'opacity:0')}}`),
-        `.plan .xh-x{animation:plan-xx ${period}s var(--cycle) infinite both}`,
-        `.plan .xh-y{animation:plan-yy ${period}s var(--cycle) infinite both}`,
-        ...points.map((p) => `.plan .pt-${p.i}{animation:plan-pop .4s ease-out var(--d) both,plan-hl-${p.i} ${period}s var(--cycle) infinite both}`),
-        ...points.map((p) => `.plan .ro-${p.i}{animation:plan-ro-${p.i} ${period}s var(--cycle) infinite both}`),
-        ...points.map((p) => `.plan-seen .plan .pt-${p.i}{animation:plan-hl-${p.i} ${period}s var(--cycle) infinite both}`),
-      ].join('\n')
-    : '';
+// Which point is lit, and which readout shows, follows data-active on the drawing.
+const activeCss = points
+  .map((p) => `.plan[data-active="${p.i}"] .pt-${p.i}{fill:var(--plan-accent)}.plan[data-active="${p.i}"] .ro-${p.i}{opacity:1}`)
+  .join('');
 const first = points[0];
 ---
 
-<svg
-  class="plan"
-  viewBox="0 0 560 380"
-  role="img"
-  aria-label={`Plan of a small house drawn on x and y axes, with ${n} projects plotted as points: ${points.map((p) => p.id).join(', ')}`}
->
-  <g class="grid">
-    {xs.map((i) => <line x1={px(i)} y1={oy} x2={px(i)} y2={py(6.6)} />)}
-    {ys.map((i) => <line x1={ox} y1={py(i)} x2={px(10)} y2={py(i)} />)}
-  </g>
-  <g class="ticks">
-    {xs.map((i) => <text class="t mid" x={px(i)} y={oy + 18}>{i}</text>)}
-    {ys.map((i) => <text class="t end" x={ox - 12} y={py(i) + 3}>{i}</text>)}
-    <text class="t ink" x={ox + 6} y="30">y</text>
-    <text class="t ink" x={px(10) + 12} y={oy - 8}>x</text>
-  </g>
-  <line class="axis" style="--len: 460px" x1={ox} y1={oy} x2={ox + 460} y2={oy}></line>
-  <line class="axis" style="--len: 310px" x1={ox} y1={oy} x2={ox} y2={oy - 310}></line>
-
-  <path class="hatch" d={hatch}></path>
-  <path class="wall" style="--len: 968px; --d: 1.1s" d="M158 286h264v-220h-264z"></path>
-  <path class="wall inner" style="--len: 88px; --d: 2.3s" d="M290 66v88"></path>
-  <path class="wall inner" style="--len: 88px; --d: 2.45s" d="M290 198v88"></path>
-  <path class="wall inner" style="--len: 88px; --d: 2.6s" d="M158 176h88"></path>
-  <path class="door" d="M246 286a44 44 0 0 1 -44 -44"></path>
-  <text class="t room" x="174" y="90">KITCHEN</text>
-  <text class="t room" x="306" y="90">TABLE</text>
-  <text class="t room" x="174" y="200">WORKSHOP</text>
-
-  {points.map((p) => <line class="proj" style={`--d: ${3.4 + p.i * 0.4}s`} x1={ox} y1={p.cy} x2={p.cx} y2={p.cy} />)}
-
-  {
-    first && (
-      <g class="xh">
-        <g class="xh-x" style={`transform: translateX(${first.cx}px)`}>
-          <line x1="0" y1={py(6.6)} x2="0" y2={oy} />
-          <path d={`M0 ${oy}l-4 7h8z`} />
-        </g>
-        <g class="xh-y" style={`transform: translateY(${first.cy}px)`}>
-          <line x1={ox} y1="0" x2={px(10)} y2="0" />
-          <path d={`M${ox} 0l-7 -4v8z`} />
-        </g>
-        {points.map((p) => (
-          <text class={`t ro ro-${p.i}`} x={px(10)} y="30">
-            {p.code} · {p.id} · x {p.x} · y {p.y}
-          </text>
-        ))}
+<div class="plan-wrap">
+  <svg class="plan" viewBox="0 0 560 380" data-active="0" role="group" aria-label="Plan of a small house with each project plotted on it">
+    <g aria-hidden="true">
+      <g class="gridlines">
+        {xs.map((i) => <line x1={px(i)} y1={oy} x2={px(i)} y2={py(6.6)} />)}
+        {ys.map((i) => <line x1={ox} y1={py(i)} x2={px(10)} y2={py(i)} />)}
       </g>
+      <g class="ticks">
+        {xs.map((i) => <text class="t mid" x={px(i)} y={oy + 18}>{i}</text>)}
+        {ys.map((i) => <text class="t end" x={ox - 12} y={py(i) + 3}>{i}</text>)}
+        <text class="t ink" x={ox + 6} y="30">y</text>
+        <text class="t ink" x={px(10) + 12} y={oy - 8}>x</text>
+      </g>
+      <line class="axis" style="--len: 460px" x1={ox} y1={oy} x2={ox + 460} y2={oy}></line>
+      <line class="axis" style="--len: 310px" x1={ox} y1={oy} x2={ox} y2={oy - 310}></line>
+
+      <path class="hatch" d={hatch}></path>
+      <path class="wall" style="--len: 968px; --d: 1.1s" d="M158 286h264v-220h-264z"></path>
+      <path class="wall inner" style="--len: 88px; --d: 2.3s" d="M290 66v88"></path>
+      <path class="wall inner" style="--len: 88px; --d: 2.45s" d="M290 198v88"></path>
+      <path class="wall inner" style="--len: 88px; --d: 2.6s" d="M158 176h88"></path>
+      <path class="door" d="M246 286a44 44 0 0 1 -44 -44"></path>
+      <text class="t room" x="174" y="90">KITCHEN</text>
+      <text class="t room" x="306" y="90">TABLE</text>
+      <text class="t room" x="174" y="200">WORKSHOP</text>
+
+      {points.map((p) => <line class="proj" style={`--d: ${3.4 + p.i * 0.4}s`} x1={ox} y1={p.cy} x2={p.cx} y2={p.cy} />)}
+
+      {
+        first && (
+          <g class="xh">
+            <g class="xh-x" style={`transform: translateX(${first.cx}px)`}>
+              <line x1="0" y1={py(6.6)} x2="0" y2={oy} />
+              <path d={`M0 ${oy}l-4 7h8z`} />
+            </g>
+            <g class="xh-y" style={`transform: translateY(${first.cy}px)`}>
+              <line x1={ox} y1="0" x2={px(10)} y2="0" />
+              <path d={`M${ox} 0l-7 -4v8z`} />
+            </g>
+            {points.map((p) => (
+              <text class={`t ro ro-${p.i}`} x={px(10)} y="30">
+                {p.code} · {p.id} · x {p.x} · y {p.y}
+              </text>
+            ))}
+          </g>
+        )
+      }
+    </g>
+
+    {
+      points.map((p) => (
+        <a class="pt-link" href={`/projects/${p.id}/`} data-i={p.i} data-cx={p.cx} data-cy={p.cy} aria-label={`${p.title}, at x ${p.x}, y ${p.y}`}>
+          <circle class="pt-hit" cx={p.cx} cy={p.cy} r="14" />
+          <circle class={`pt pt-${p.i}`} style={`--d: ${3.8 + p.i * 0.4}s`} cx={p.cx} cy={p.cy} r="5" />
+          <text class="t lbl" style={`--d: ${3.9 + p.i * 0.4}s`} x={p.cx + 10} y={p.cy + 4} aria-hidden="true">
+            {p.code}
+          </text>
+        </a>
+      ))
+    }
+  </svg>
+  {
+    points.length > 1 && (
+      <button class="plan-pause" type="button" aria-pressed="false" hidden>
+        <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+          <path class="i-pause" d="M3 2v8M9 2v8" />
+          <path class="i-play" d="M3 2l7 4-7 4z" />
+        </svg>
+        <span>Pause</span>
+      </button>
     )
   }
-
-  {points.map((p) => <circle class={`pt pt-${p.i}`} style={`--d: ${3.8 + p.i * 0.4}s`} cx={p.cx} cy={p.cy} r="5" />)}
-  {points.map((p) => <text class="t lbl" style={`--d: ${3.9 + p.i * 0.4}s`} x={p.cx + 10} y={p.cy + 4}>{p.code}</text>)}
-</svg>
+</div>
 
 <script is:inline>
-  // The draw-in plays once per visit; after that the drawing starts finished and only the crosshair moves.
+  // The draw-in plays once per visit; after that the drawing starts finished.
   try {
     if (sessionStorage.getItem('plan-seen')) document.documentElement.classList.add('plan-seen');
     sessionStorage.setItem('plan-seen', '1');
   } catch (e) {}
 </script>
 
-<style is:inline set:html={tourCss}></style>
+<script>
+  // The crosshair. It moves on a transition, so pointing at another point mid-move simply retargets it.
+  const svg = document.querySelector<SVGSVGElement>('.plan');
+  const button = document.querySelector<HTMLButtonElement>('.plan-pause');
+  if (svg) {
+    const points = [...svg.querySelectorAll<SVGAElement>('.pt-link')];
+    const xhX = svg.querySelector<SVGGElement>('.xh-x');
+    const xhY = svg.querySelector<SVGGElement>('.xh-y');
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const seen = document.documentElement.classList.contains('plan-seen');
+    let active = 0;
+    let held = false;
+    let paused = false;
+    let inView = true;
+
+    const show = (i: number) => {
+      const p = points[i];
+      if (!p || !xhX || !xhY) return;
+      active = i;
+      svg.dataset.active = String(i);
+      xhX.style.transform = `translateX(${p.dataset.cx}px)`;
+      xhY.style.transform = `translateY(${p.dataset.cy}px)`;
+    };
+
+    points.forEach((p, i) => {
+      p.addEventListener('pointerenter', (e) => {
+        if (e.pointerType !== 'mouse') return;
+        held = true;
+        show(i);
+      });
+      p.addEventListener('pointerleave', () => (held = false));
+      p.addEventListener('focus', () => {
+        held = true;
+        show(i);
+      });
+      p.addEventListener('blur', () => (held = false));
+    });
+
+    if (!still && points.length > 1) {
+      new IntersectionObserver(([entry]) => (inView = entry.isIntersecting)).observe(svg);
+      const tick = () => {
+        if (!paused && !held && inView && !document.hidden) show((active + 1) % points.length);
+      };
+      window.setTimeout(() => window.setInterval(tick, 3000), seen ? 1500 : 5500);
+
+      if (button) {
+        button.hidden = false;
+        button.addEventListener('click', () => {
+          paused = !paused;
+          button.setAttribute('aria-pressed', String(paused));
+          button.querySelector('span')!.textContent = paused ? 'Play' : 'Pause';
+        });
+      }
+    }
+  }
+</script>
+
+<style is:inline set:html={activeCss}></style>
 
 <style is:global>
+  .plan-wrap {
+    display: grid;
+    gap: var(--ord-space-xs);
+  }
   .plan {
     --plan-ink: var(--ord-color-text-body);
     --plan-quiet: var(--ord-color-text-secondary);
     --plan-rule: var(--ord-color-border-divider);
     --plan-accent: var(--ord-color-text-accent);
     --plan-ground: var(--ord-color-background-band-accent);
-    --cycle: 5s;
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
     display: block;
     inline-size: 100%;
     block-size: auto;
   }
-  .plan-seen .plan {
-    --cycle: 0.4s;
-  }
-  .plan .grid line {
+  .plan .gridlines line {
     stroke: var(--plan-rule);
     stroke-dasharray: 1 5;
-    animation: plan-fade 0.8s ease-out 0.1s both;
+    animation: plan-fade 0.8s var(--ease-out) 0.1s both;
   }
   .plan .t {
     font-family: var(--ord-font-family-mono);
@@ -187,7 +240,7 @@ const first = points[0];
     fill: var(--plan-ink);
   }
   .plan .ticks {
-    animation: plan-fade 0.5s ease-out 0.9s both;
+    animation: plan-fade 0.5s var(--ease-out) 0.9s both;
   }
   .plan .axis,
   .plan .wall {
@@ -197,12 +250,12 @@ const first = points[0];
   }
   .plan .axis {
     stroke-width: 1.5;
-    animation: plan-draw 0.9s cubic-bezier(0.65, 0, 0.35, 1) 0.3s both;
+    animation: plan-draw 0.9s var(--ease-in-out) 0.3s both;
   }
   .plan .wall {
     stroke-width: 5;
     stroke-linecap: square;
-    animation: plan-draw 1.4s cubic-bezier(0.65, 0, 0.35, 1) var(--d) both;
+    animation: plan-draw 1.4s var(--ease-in-out) var(--d) both;
   }
   .plan .wall.inner {
     stroke-width: 2.5;
@@ -212,17 +265,17 @@ const first = points[0];
     fill: none;
     stroke: var(--ord-color-hatch);
     stroke-width: 2;
-    animation: plan-fade 0.6s ease-out 2.9s both;
+    animation: plan-fade 0.6s var(--ease-out) 2.9s both;
   }
   .plan .door {
     fill: none;
     stroke: var(--plan-ink);
     stroke-dasharray: 3 3;
-    animation: plan-fade 0.5s ease-out 2.9s both;
+    animation: plan-fade 0.5s var(--ease-out) 2.9s both;
   }
   .plan .room {
     fill: var(--plan-ink);
-    animation: plan-fade 0.4s ease-out 3.1s both;
+    animation: plan-fade 0.4s var(--ease-out) 3.1s both;
   }
   .plan .proj {
     stroke: var(--plan-ink);
@@ -230,26 +283,42 @@ const first = points[0];
     opacity: 0.5;
     transform-box: fill-box;
     transform-origin: 0 50%;
-    animation: plan-grow 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d) both;
+    animation: plan-grow 0.5s var(--ease-out) var(--d) both;
+  }
+  .plan .pt-hit {
+    fill: transparent;
   }
   .plan .pt {
     fill: var(--plan-ground);
     stroke: var(--plan-ink);
     stroke-width: 1.5;
     transform-box: fill-box;
-    transform-origin: 50% 50%;
-    animation: plan-pop 0.4s ease-out var(--d) both;
-  }
-  .plan .pt-0 {
-    fill: var(--plan-accent);
+    transform-origin: center;
+    transition: fill 200ms ease;
+    animation: plan-pop 0.3s var(--ease-out) var(--d) both;
   }
   .plan .lbl {
     font-size: 10px;
     fill: var(--plan-ink);
-    animation: plan-fade 0.3s ease-out var(--d) both;
+    animation: plan-fade 0.3s var(--ease-out) var(--d) both;
+  }
+  .plan .pt-link {
+    cursor: pointer;
+    outline: none;
+  }
+  .plan .pt-link:focus-visible .pt-hit {
+    stroke: var(--ord-color-border-focus-ring);
+    stroke-width: 2;
   }
   .plan .xh {
-    animation: plan-fade 0.6s ease-out var(--cycle) both;
+    animation: plan-fade 0.6s var(--ease-out) 5s both;
+  }
+  .plan-seen .plan .xh {
+    animation-delay: 0s;
+  }
+  .plan .xh-x,
+  .plan .xh-y {
+    transition: transform 700ms var(--ease-in-out);
   }
   .plan .xh line {
     stroke: var(--plan-accent);
@@ -262,10 +331,58 @@ const first = points[0];
     fill: var(--plan-accent);
     text-anchor: end;
     opacity: 0;
+    transition: opacity 200ms ease;
   }
-  .plan .ro-0 {
-    opacity: 1;
+
+  .plan-pause {
+    display: inline-flex;
+    align-items: center;
+    justify-self: end;
+    gap: var(--ord-space-xs);
+    min-block-size: 32px;
+    padding-inline: var(--ord-space-xs);
+    border: 0;
+    background: none;
+    color: var(--ord-color-text-secondary);
+    font-family: var(--ord-font-family-mono);
+    font-size: var(--ord-font-size-small);
+    cursor: pointer;
+    transition: color 150ms ease, transform 160ms var(--ease-out, ease-out);
   }
+  .plan-pause[hidden] {
+    display: none;
+  }
+  .plan-pause svg {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.5;
+  }
+  .plan-pause .i-play,
+  .plan-pause[aria-pressed='true'] .i-pause {
+    display: none;
+  }
+  .plan-pause[aria-pressed='true'] .i-play {
+    display: inline;
+    fill: currentColor;
+  }
+  .plan-pause:active {
+    transform: scale(0.97);
+  }
+  .plan-pause:focus-visible {
+    outline: var(--ord-border-width-focus-ring) solid var(--ord-color-border-focus-ring);
+    outline-offset: var(--ord-border-focus-ring-offset);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .plan-pause:hover {
+      color: var(--ord-color-text-body);
+    }
+  }
+  @media (pointer: coarse) {
+    .plan-pause {
+      min-block-size: 44px;
+    }
+  }
+
   @keyframes plan-fade {
     from {
       opacity: 0;
@@ -285,29 +402,24 @@ const first = points[0];
     }
   }
   @keyframes plan-pop {
-    0% {
-      transform: scale(0);
-    }
-    70% {
-      transform: scale(1.35);
-    }
-    100% {
-      transform: scale(1);
+    from {
+      opacity: 0;
+      transform: scale(0.6);
     }
   }
-  /* Seen already this visit: skip the draw-in, keep the crosshair. */
-  .plan-seen .plan :is(.grid line, .ticks, .axis, .wall, .hatch, .door, .room, .proj, .lbl) {
-    animation: none;
-  }
-  .plan-seen .plan .pt {
+  /* Seen already this visit: skip the draw-in. */
+  .plan-seen .plan :is(.gridlines line, .ticks, .axis, .wall, .hatch, .door, .room, .proj, .pt, .lbl) {
     animation: none;
   }
   @media (prefers-reduced-motion: reduce) {
-    .plan * {
+    .plan *,
+    .plan-pause {
       animation: none !important;
+      transition: none !important;
     }
   }
   .ord-motion-disabled .plan * {
     animation: none !important;
+    transition: none !important;
   }
 </style>

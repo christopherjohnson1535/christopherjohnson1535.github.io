@@ -1,19 +1,192 @@
-/* Ordinate draws almost everything. This file only covers the page itself. */
+/* Ordinate draws almost everything. This file covers the page itself: the grid every section shares,
+   the write-up rows, and a few document-wide details. Colours, type and spacing all come from
+   Ordinate's tokens. */
+
+html {
+  color-scheme: dark;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: rgb(88 196 221 / 0.2);
+}
 
 body {
   background-color: var(--ord-color-background-container);
 }
 
-/* Screenshots fill their figure frames. */
+:is(h1, h2, h3) {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+/* Hidden until a keyboard user tabs to it. */
+.skip {
+  position: absolute;
+  z-index: 10;
+  inset-block-start: var(--ord-space-xs);
+  inset-inline-start: var(--ord-space-xs);
+  padding: var(--ord-space-xs) var(--ord-space-s);
+  background-color: var(--ord-color-background-button-primary);
+  color: var(--ord-color-text-button-primary);
+  font-weight: var(--ord-font-weight-label);
+  transform: translateY(-200%);
+}
+
+.skip:focus-visible {
+  transform: none;
+}
+
+main:focus {
+  outline: none;
+}
+
+/* The grid. Twelve columns with Ordinate's 24px gutter, inside the same 1200px frame as the header and
+   footer, so every picture, list and block of text starts and ends on a shared column line. */
+.grid {
+  container-type: inline-size;
+}
+
+.grid > .cols {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--ord-space-xl) var(--ord-space-l);
+}
+
+.cols > * {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
+@container (min-inline-size: 688px) {
+  .cols > .span-6 {
+    grid-column: span 6;
+  }
+
+  .cols > .span-4 {
+    grid-column: span 4;
+  }
+}
+
+/* Screenshots fill their frames. */
 .shot {
   display: block;
   inline-size: 100%;
   block-size: auto;
 }
 
-/* Figures on a project page sit side by side, then stack on a phone. */
-.figures {
+/* A write-up, set as rows: each heading in the left third, its text in the right two-thirds. The
+   Markdown's elements are the grid's items, so a heading starts a new row and the text after it fills
+   the right-hand column until the next heading. */
+.rows {
+  container-type: inline-size;
+}
+
+.rows > .row-body {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
-  gap: var(--ord-space-xxl) var(--ord-space-xl);
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--ord-space-l);
+  align-items: start;
+}
+
+.row-body > * {
+  grid-column: 1 / -1;
+  min-inline-size: 0;
+}
+
+.row-body > h2 {
+  margin: var(--ord-space-xxl) 0 var(--ord-space-s);
+  padding-block-start: var(--ord-space-s);
+  border-block-start: var(--ord-border-width-default) solid var(--ord-color-border-strong);
+  font-family: var(--ord-font-family-headline);
+  font-size: var(--ord-font-size-headline-s);
+  font-weight: var(--ord-font-weight-headline);
+  line-height: var(--ord-line-height-headline);
+  letter-spacing: var(--ord-letter-spacing-headline);
+}
+
+.row-body > h2:first-child {
+  margin-block-start: 0;
+}
+
+@container (min-inline-size: 688px) {
+  .row-body > * {
+    grid-column: 5 / -1;
+  }
+
+  /* The heading's rule runs across the whole row: four columns are a third of the row less two
+     gutters, so three times the heading's width plus two gutters is the full width. */
+  .row-body > h2 {
+    position: relative;
+    grid-column: 1 / span 4;
+    margin-block-end: 0;
+    border-block-start: 0;
+  }
+
+  .row-body > h2::before {
+    content: '';
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    inline-size: calc(300% + 2 * var(--ord-space-l));
+    border-block-start: var(--ord-border-width-default) solid var(--ord-color-border-strong);
+  }
+
+  /* The first block after each heading sits on the heading's line. */
+  .row-body > h2 + * {
+    margin-block-start: var(--ord-space-xxl);
+    padding-block-start: var(--ord-space-s);
+  }
+
+  .row-body > h2:first-child + * {
+    margin-block-start: 0;
+  }
+}
+
+.row-body {
+  font-family: var(--ord-font-family-reading);
+  font-size: var(--ord-font-size-reading);
+  line-height: var(--ord-line-height-reading);
+}
+
+.row-body > :is(p, ul, ol) {
+  max-inline-size: 66ch;
+  margin-block-end: var(--ord-space-m);
+}
+
+.row-body > :is(p, ul, ol):not(h2 + *) {
+  margin-block-start: 0;
+}
+
+.row-body > :last-child {
+  margin-block-end: 0;
+}
+
+.row-body :is(ul, ol) {
+  padding-inline-start: 1.25em;
+}
+
+.row-body li + li {
+  margin-block-start: var(--ord-space-xxs);
+}
+
+.row-body strong {
+  font-weight: var(--ord-font-weight-bold);
+}
+
+.row-body a {
+  color: var(--ord-color-text-link);
+  text-decoration-line: underline;
+  text-underline-offset: 0.2em;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .row-body a:hover {
+    color: var(--ord-color-text-link-hover);
+  }
+}
+
+.row-body a:focus-visible {
+  outline: var(--ord-border-width-focus-ring) solid var(--ord-color-border-focus-ring);
+  outline-offset: var(--ord-border-focus-ring-offset);
 }

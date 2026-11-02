@@ -53,7 +53,9 @@ images:
 
 ## What it does
 
-The write-up is set with Ordinate's Article, so `##` headings each get a rule above them.
+The write-up is set as rows: each `##` heading sits in the left third with its text to the right, under one rule.
 ```
 
-Every project is plotted as a point on the home page drawing (up to six). The first project with an image is the figure under "Selected work".
+Every project is plotted as a point on the home page drawing (up to six), and each point links to it. Projects with at least one image appear under "Selected work", shown with their first image.
+
+Everything sits on one 12-column grid inside the same 1200px frame as the header and footer (`.grid`/`.cols` in `src/styles/site.css`), so screenshots on a page all get the same width.

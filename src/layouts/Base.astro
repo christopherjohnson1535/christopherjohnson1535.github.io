@@ -11,7 +11,7 @@ interface Props {
   description?: string;
 }
 
-const { title, description = "Small software for home. Projects I've built and the one I'm building now." } = Astro.props;
+const { title, description = 'Small software for home. Projects I’ve built and the one I’m building now.' } = Astro.props;
 const pageTitle = title ? `${title} | ${name}` : name;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 
@@ -41,12 +41,13 @@ const bodyClass = `ord-dark-mode ord-revision-${revision.replace(/\./g, '-')}`;
     <meta property="og:type" content="website" />
   </head>
   <body class={bodyClass}>
+    <a class="skip" href="#main">Skip to content</a>
     <Header
       client:load
       path={Astro.url.pathname}
       current={current && { title: current.data.title, href: `/projects/${current.id}/` }}
     />
-    <main>
+    <main id="main" tabindex="-1">
       <slot />
     </main>
     <Footer
