@@ -16,7 +16,6 @@ const pageTitle = title ? `${title} | ${name}` : name;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 
 const projects = await getProjects();
-const current = projects.find((p) => p.data.status === 'In progress');
 const live = projects.filter((p) => p.data.link);
 
 // Ordinate reads its mode and revision from classes, so they are set here and need no script.
@@ -42,11 +41,7 @@ const bodyClass = `ord-dark-mode ord-revision-${revision.replace(/\./g, '-')}`;
   </head>
   <body class={bodyClass}>
     <a class="skip" href="#main">Skip to content</a>
-    <Header
-      client:load
-      path={Astro.url.pathname}
-      current={current && { title: current.data.title, href: `/projects/${current.id}/` }}
-    />
+    <Header client:load path={Astro.url.pathname} />
     <main id="main" tabindex="-1">
       <slot />
     </main>
