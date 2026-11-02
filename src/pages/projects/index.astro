@@ -1,4 +1,5 @@
 ---
+import Opening from '@ordinate/components/opening';
 import Section from '@ordinate/components/section';
 import Base from '../../layouts/Base.astro';
 import SheetIndex from '../../components/SheetIndex';
@@ -7,8 +8,9 @@ import { getProjects } from '../../lib/projects';
 const projects = await getProjects();
 ---
 
-<Base title="Projects" description="Everything I've built or am building.">
-  <Section heading="Projects" headingLevel={1} description="Everything I've built or am building." width="narrow" spacing="large">
+<Base title="Projects" description="Everything I’ve built or am building.">
+  <Opening variant="statement" kicker="Sheet index" title="Projects" description="Everything I’ve built or am building." />
+  <Section spacing="small">
     <SheetIndex
       items={projects.map((p) => ({
         id: p.id,

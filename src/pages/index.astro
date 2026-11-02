@@ -1,23 +1,24 @@
 ---
 import { Image } from 'astro:assets';
 import Button from '@ordinate/components/button';
-import Figure from '@ordinate/components/figure';
 import Link from '@ordinate/components/link';
+import Media from '@ordinate/components/media';
 import Opening from '@ordinate/components/opening';
+import Plate from '@ordinate/components/plate';
 import Section from '@ordinate/components/section';
 import SpaceBetween from '@ordinate/components/space-between';
 import TitleBlock from '@ordinate/components/title-block';
 import Base from '../layouts/Base.astro';
 import PlanDrawing from '../components/PlanDrawing.astro';
-import SheetIndex from '../components/SheetIndex';
-import { getProjects, metaLine, tabCode } from '../lib/projects';
+import { getProjects, tabCode } from '../lib/projects';
 import { github, name, revision } from '../lib/site';
 
 const projects = await getProjects();
 const current = projects.find((p) => p.data.status === 'In progress');
 const live = projects.filter((p) => p.data.status === 'Live');
-const featured = projects.find((p) => p.data.images.length);
+const withImages = projects.filter((p) => p.data.images.length);
 const codes = projects.map(tabCode).join(' ');
+const sheet = (p: (typeof projects)[number]) => String(projects.indexOf(p) + 1).padStart(2, '0');
 ---
 
 <Base>
@@ -25,14 +26,17 @@ const codes = projects.map(tabCode).join(' ');
     variant="split"
     kicker="Software, mostly for home"
     title="Small software for home."
-    description="Things I've built, and the one I'm building now. Written to last."
+    description="Things I’ve built, and the one I’m building now. Written to last."
     mediaCaption={`Sheet 00 · the house, plotted · ${codes}`}
   >
     <SpaceBetween slot="actions" direction="horizontal" size="xs">
       <Button variant="primary" href="/projects/">See the projects</Button>
       <Button href={github} external={true}>GitHub</Button>
     </SpaceBetween>
-    <PlanDrawing slot="media" points={projects.map((p) => ({ code: tabCode(p), id: p.id }))} />
+    <PlanDrawing
+      slot="media"
+      points={projects.map((p) => ({ code: tabCode(p), id: p.id, title: p.data.title }))}
+    />
   </Opening>
 
   <Section spacing="small">
@@ -48,39 +52,37 @@ const codes = projects.map(tabCode).join(' ');
   </Section>
 
   {
-    featured && (
-      <Section id="work" heading="Selected work" description="Things I've built, and the one I'm building now.">
+    withImages.length > 0 && (
+      <Section id="work" heading="Selected work" description="Things I’ve built, and the one I’m building now.">
         <Link slot="actions" href="/projects/">
           All projects →
         </Link>
-        <Figure label={`fig. 01 / ${featured.id}`} credit={metaLine(featured)}>
-          <a slot="media" href={`/projects/${featured.id}/`}>
-            <Image
-              class="shot"
-              src={featured.data.images[0].src}
-              alt={featured.data.images[0].alt}
-              widths={[640, 1280, 1920]}
-              sizes="(max-width: 1280px) 100vw, 1180px"
-              loading="eager"
-            />
-          </a>
-          <span slot="caption">
-            <Link href={`/projects/${featured.id}/`}>{featured.data.title}</Link>: {featured.data.intro}
-          </span>
-        </Figure>
+        <div class="grid">
+          <div class="cols">
+            {withImages.map((p) => (
+              <div class={withImages.length >= 3 ? 'span-4' : withImages.length === 2 ? 'span-6' : ''}>
+                <Plate
+                  href={`/projects/${p.id}/`}
+                  label={`Sheet ${sheet(p)}`}
+                  meta={`${p.data.year} · ${p.data.status}`}
+                  title={p.data.title}
+                  description={p.data.intro}
+                >
+                  <Media slot="media" aspectRatio="3:2">
+                    <Image
+                      src={p.data.images[0].src}
+                      alt={p.data.images[0].alt}
+                      widths={[400, 800, 1200]}
+                      sizes="(max-width: 688px) 100vw, 384px"
+                      loading="lazy"
+                    />
+                  </Media>
+                </Plate>
+              </div>
+            ))}
+          </div>
+        </div>
       </Section>
     )
   }
-
-  <Section id="projects" heading="Sheet index" rule="top" width="narrow">
-    <SheetIndex
-      items={projects.map((p) => ({
-        id: p.id,
-        title: p.data.title,
-        href: `/projects/${p.id}/`,
-        stack: p.data.stack.join(', ').toLowerCase(),
-        status: p.data.status,
-      }))}
-    />
-  </Section>
 </Base>
