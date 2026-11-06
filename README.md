@@ -14,7 +14,7 @@ Needs Node 22.
 
 ## Updating Ordinate
 
-Ordinate isn't on npm, so its packages live in `vendor/` as tarballs. To move to a newer build:
+Ordinate isn't on npm, so its packages live in `vendor/` as tarballs. They were last built from Ordinate `88fd8de` (5 November 2026). To move to a newer build:
 
 ```
 # in the ordinate repo
