@@ -23,7 +23,7 @@ export default function SheetIndex({ items }: { items: SheetIndexItem[] }) {
         href: p.href,
         meta: p.stack,
         value: (
-          <Stamp size="small" rotation="none" type={p.status === 'Live' ? 'success' : 'draft'}>
+          <Stamp size="small" rotation="none" type={p.status === 'Live' ? 'complete' : 'draft'}>
             {p.status}
           </Stamp>
         ),
